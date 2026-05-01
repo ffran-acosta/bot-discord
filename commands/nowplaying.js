@@ -3,7 +3,7 @@ import { syncNowPlayingPanel } from '../src/services/nowPlayingMessage.js';
 
 export default {
     data: new SlashCommandBuilder()
-        .setName('panel')
+        .setName('nowplaying')
         .setDescription('Muestra el panel de reproducción con controles en este canal'),
 
     async execute(interaction, kazagumo) {

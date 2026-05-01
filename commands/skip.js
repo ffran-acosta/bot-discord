@@ -5,7 +5,7 @@ import { isAutoplay } from '../src/services/playerState.js';
 
 export default {
     data: new SlashCommandBuilder()
-        .setName('saltar')
+        .setName('skip')
         .setDescription('Salta a la siguiente canción'),
 
     async execute(interaction, kazagumo) {
@@ -21,7 +21,7 @@ export default {
         const nextTrack = player.queue[0] ?? null;
         const guildId = interaction.guild.id;
 
-        logger.info('Saltar', { guildId, omitido: currentTrack.title, siguiente: nextTrack?.title ?? 'nada' });
+        logger.info('Skip', { guildId, skipped: currentTrack.title, next: nextTrack?.title ?? 'nothing' });
 
         await player.skip();
 
@@ -34,7 +34,7 @@ export default {
         if (nextTrack) {
             embed.addFields({ name: '🎵 Siguiente', value: `**${nextTrack.title}**`, inline: false });
         } else if (isAutoplay(guildId)) {
-            embed.addFields({ name: '🔄 Auto-reproducir', value: 'Buscando un tema relacionado…', inline: false });
+            embed.addFields({ name: '🔄 Autoplay', value: 'Buscando un tema relacionado…', inline: false });
         } else {
             embed.setDescription(`Se saltó: **${currentTrack.title}**\n\n❌ No hay más temas en la cola.`);
         }

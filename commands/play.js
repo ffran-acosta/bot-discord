@@ -4,10 +4,10 @@ import logger from '../src/utils/logger.js';
 
 export default {
     data: new SlashCommandBuilder()
-        .setName('reproducir')
+        .setName('play')
         .setDescription('Reproduce una canción o la agrega a la cola')
         .addStringOption(option =>
-            option.setName('consulta')
+            option.setName('song')
                 .setDescription('Nombre o URL de la canción')
                 .setRequired(true)
         ),
@@ -15,10 +15,10 @@ export default {
     async execute(interaction, kazagumo) {
         await interaction.deferReply();
 
-        const query = interaction.options.getString('consulta', true);
+        const query = interaction.options.getString('song', true);
         const guildId = interaction.guild.id;
 
-        logger.info('Comando reproducir', { guildId, user: interaction.user.tag, query });
+        logger.info('Comando play', { guildId, user: interaction.user.tag, query });
 
         return searchAndEnqueue(interaction, kazagumo, query, { position: 'end' });
     }

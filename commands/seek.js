@@ -22,11 +22,11 @@ function parseSeekInput(raw) {
 
 export default {
     data: new SlashCommandBuilder()
-        .setName('adelantar')
+        .setName('seek')
         .setDescription('Salta a una posición en la pista actual (mm:ss o segundos)')
         .addStringOption(option =>
             option
-                .setName('tiempo')
+                .setName('time')
                 .setDescription('Tiempo en segundos (ej. 90) o mm:ss (ej. 1:30)')
                 .setRequired(true)
         ),
@@ -49,7 +49,7 @@ export default {
             return interaction.reply('❌ Esta pista no admite seek.');
         }
 
-        const raw = interaction.options.getString('tiempo', true);
+        const raw = interaction.options.getString('time', true);
         const positionMs = parseSeekInput(raw);
         if (positionMs === null || positionMs < 0) {
             return interaction.reply('❌ Tiempo inválido. Usá segundos (ej. `90`) o `mm:ss` / `h:mm:ss`.');

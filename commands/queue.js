@@ -71,7 +71,7 @@ function buildQueueRows(page, maxPage) {
 
 export default {
     data: new SlashCommandBuilder()
-        .setName('cola')
+        .setName('queue')
         .setDescription('Muestra la cola de reproducción (10 por página)'),
 
     async execute(interaction, kazagumo) {

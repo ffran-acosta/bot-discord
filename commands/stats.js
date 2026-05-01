@@ -3,7 +3,7 @@ import { formatBytes, formatUptime, getBotStats } from '../src/services/stats.js
 
 export default {
     data: new SlashCommandBuilder()
-        .setName('estadisticas')
+        .setName('stats')
         .setDescription('Estadísticas del bot (uptime, servidores, reproducciones, nodos, memoria)'),
 
     async execute(interaction, kazagumo) {

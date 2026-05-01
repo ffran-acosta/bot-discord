@@ -4,7 +4,7 @@ import logger from '../src/utils/logger.js';
 
 export default {
     data: new SlashCommandBuilder()
-        .setName('aleatorio')
+        .setName('shuffle')
         .setDescription('Mezcla el orden de los temas en la cola'),
 
     async execute(interaction, kazagumo) {
@@ -35,7 +35,7 @@ export default {
             )
             .setTimestamp();
 
-        logger.info('Aleatorio', { guildId: interaction.guild.id, user: interaction.user.tag, queueSize: player.queue.length });
+        logger.info('Shuffle', { guildId: interaction.guild.id, user: interaction.user.tag, queueSize: player.queue.length });
 
         await interaction.reply({ embeds: [embed] });
     }

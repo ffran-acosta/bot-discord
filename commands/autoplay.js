@@ -5,10 +5,10 @@ import { setAutoplay, setAutoplayContext } from '../src/services/playerState.js'
 
 export default {
     data: new SlashCommandBuilder()
-        .setName('auto-reproducir')
+        .setName('autoplay')
         .setDescription('Activa o desactiva la reproducción automática de temas relacionados')
         .addStringOption(option =>
-            option.setName('modo')
+            option.setName('mode')
                 .setDescription('Activar o desactivar la reproducción automática')
                 .setRequired(true)
                 .addChoices(
@@ -21,7 +21,7 @@ export default {
         if (!guard) return;
         const { player } = guard;
 
-        const mode = interaction.options.getString('modo');
+        const mode = interaction.options.getString('mode');
         const isEnabled = mode === 'on';
         const guildId = interaction.guild.id;
 
@@ -38,12 +38,12 @@ export default {
             )
             .setDescription(
                 isEnabled
-                    ? 'El bot reproducirá temas relacionados cuando la cola termine.\n\nUsá **`/reproducir`** para agregar música manualmente o **`/auto-reproducir`** con **Desactivar** para apagar.'
+                    ? 'El bot reproducirá temas relacionados cuando la cola termine.\n\nUsá **`/play`** para agregar música manualmente o **`/autoplay`** con **Desactivar** para apagar.'
                     : 'El bot ya no elegirá temas solos al terminar la cola.'
             )
             .setTimestamp();
 
-        logger.info(`Auto-reproducir ${isEnabled ? 'activado' : 'desactivado'}`, { guildId, user: interaction.user.tag });
+        logger.info(`Autoplay ${isEnabled ? 'activado' : 'desactivado'}`, { guildId, user: interaction.user.tag });
 
         await interaction.reply({ embeds: [embed] });
     }

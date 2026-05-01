@@ -4,10 +4,10 @@ import logger from '../src/utils/logger.js';
 
 export default {
     data: new SlashCommandBuilder()
-        .setName('volumen')
+        .setName('volume')
         .setDescription('Ajusta el volumen (0-100)')
         .addIntegerOption(option =>
-            option.setName('nivel')
+            option.setName('level')
                 .setDescription('Nivel de volumen entre 0 y 100')
                 .setRequired(true)
                 .setMinValue(0)
@@ -19,7 +19,7 @@ export default {
         if (!guard) return;
         const { player } = guard;
 
-        const volume = interaction.options.getInteger('nivel', true);
+        const volume = interaction.options.getInteger('level', true);
 
         try {
             await player.setVolume(volume);

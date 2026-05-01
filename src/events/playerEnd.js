@@ -1,10 +1,13 @@
 import { searchAndPlayRelatedSong } from '../services/autoplay.js';
+import { incrementSongsPlayed } from '../services/stats.js';
 import { scheduleDisconnect } from '../services/timers.js';
 import { stopNowPlayingUpdates, syncNowPlayingPanel } from '../services/nowPlayingMessage.js';
 
 export default function registerPlayerEndEvent(kazagumo, client) {
     kazagumo.on('playerEnd', async (player) => {
         try {
+            incrementSongsPlayed(1);
+
             const guild = client.guilds.cache.get(player.guildId);
             if (!guild) {
                 try { await player.destroy(); } catch (e) {}

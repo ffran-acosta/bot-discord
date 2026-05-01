@@ -12,6 +12,7 @@ import registerPlayerDestroyEvent from './src/events/playerDestroy.js';
 import registerVoiceStateUpdateEvent from './src/events/voiceStateUpdate.js';
 import registerShoukakuEvents from './src/events/shoukaku.js';
 import { tryHandlePlayerButtons } from './src/events/buttonInteraction.js';
+import { startHealthcheckServer } from './src/services/healthcheck.js';
 import { saveQueues, restoreQueues } from './src/services/queuePersistence.js';
 
 config();
@@ -83,6 +84,7 @@ registerPlayerEndEvent(kazagumo, client);
 registerPlayerExceptionEvent(kazagumo);
 registerPlayerDestroyEvent(kazagumo, client);
 registerVoiceStateUpdateEvent(client, kazagumo);
+const healthcheckServer = startHealthcheckServer(client, kazagumo);
 
 client.once('ready', () => {
     console.log(`🤖 Bot connected as ${client.user.tag}!`);
@@ -136,13 +138,24 @@ let shuttingDown = false;
 async function gracefulShutdown() {
     if (shuttingDown) return;
     shuttingDown = true;
-    console.log('\n🛑 Closing bot...');
+    console.log('\n🛑 Starting graceful shutdown...');
     try {
         await saveQueues(kazagumo);
     } catch (err) {
         console.error('Error saving queues:', err);
     }
+    for (const player of kazagumo.players.values()) {
+        try {
+            await player.destroy();
+        } catch (err) {
+            console.error(`Error destroying player ${player.guildId}:`, err);
+        }
+    }
     client.destroy();
+    await new Promise(resolve => {
+        healthcheckServer.close(() => resolve());
+    });
+    console.log('✅ Graceful shutdown complete');
     process.exit(0);
 }
 

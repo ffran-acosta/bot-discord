@@ -1,6 +1,6 @@
 export const DISCONNECT_TIMEOUT_MS = 3_600_000;
 export const EMPTY_CHANNEL_TIMEOUT_MS = 3_600_000;
-export const NOW_PLAYING_REFRESH_MS = 15_000;
+export const NOW_PLAYING_REFRESH_MS = 5_000;
 export const QUEUE_PAGE_SIZE = 10;
 export const QUEUE_COLLECTOR_TIMEOUT_MS = 120_000;
 export const MAX_PLAYLIST_TRACKS = 200;

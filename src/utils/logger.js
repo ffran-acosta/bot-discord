@@ -32,8 +32,50 @@ const logLevel = (process.env.LOG_LEVEL || 'info').toLowerCase();
 const validLevels = Object.keys(levels);
 const resolvedLevel = validLevels.includes(logLevel) ? logLevel : 'info';
 
-const lineFormat = format.printf(({ level, message, timestamp, stack, ...meta }) => {
+function formatMetaConsole(meta) {
+    const keys = Object.keys(meta);
+    if (!keys.length) return '';
+
+    const channelName = meta.channelName != null ? String(meta.channelName) : null;
+    const channelId = meta.channelId != null ? String(meta.channelId) : null;
+    const users = meta.users != null ? String(meta.users) : null;
+    const guildId = meta.guildId != null ? String(meta.guildId) : null;
+    const user = meta.user != null ? String(meta.user) : null;
+    const query = meta.query != null ? String(meta.query) : null;
+
+    const lines = [];
+
+    if (channelName || channelId) {
+        const idPart = channelId ? `#${channelId.slice(-6)}` : '';
+        lines.push(`canal=${channelName ?? '?'}${idPart ? ` ${idPart}` : ''}`);
+    }
+    if (users) lines.push(`usuarios=${users}`);
+    if (user) lines.push(`usr=${user}`);
+    if (query) lines.push(`q=${query.length > 120 ? `${query.slice(0, 117)}…` : query}`);
+    if (guildId) lines.push(`guild=${guildId}`);
+
+    const restKeys = keys.filter(
+        k =>
+            !['channelName', 'channelId', 'users', 'guildId', 'user', 'query'].includes(k)
+    );
+    for (const k of restKeys) {
+        const v = meta[k];
+        if (v === undefined) continue;
+        const s = typeof v === 'object' ? JSON.stringify(v) : String(v);
+        lines.push(`${k}=${s.length > 80 ? `${s.slice(0, 77)}…` : s}`);
+    }
+
+    return lines.length ? `\n  ${lines.join('\n  ')}` : '';
+}
+
+const fileLineFormat = format.printf(({ level, message, timestamp, stack, ...meta }) => {
     const metaStr = Object.keys(meta).length ? ` ${JSON.stringify(meta)}` : '';
+    const body = stack || String(message);
+    return `${timestamp} [${level}] ${body}${metaStr}`;
+});
+
+const consoleLineFormat = format.printf(({ level, message, timestamp, stack, ...meta }) => {
+    const metaStr = formatMetaConsole(meta);
     const body = stack || String(message);
     return `${timestamp} [${level}] ${body}${metaStr}`;
 });
@@ -41,14 +83,14 @@ const lineFormat = format.printf(({ level, message, timestamp, stack, ...meta })
 const baseFileFormat = format.combine(
     format.timestamp({ format: () => new Date().toISOString() }),
     format.errors({ stack: true }),
-    lineFormat
+    fileLineFormat
 );
 
 const consoleFormat = format.combine(
     format.timestamp({ format: () => new Date().toISOString() }),
     format.errors({ stack: true }),
     format.colorize({ all: true }),
-    lineFormat
+    consoleLineFormat
 );
 
 const maxBytes = 5 * 1024 * 1024;

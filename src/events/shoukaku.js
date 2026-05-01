@@ -1,28 +1,30 @@
+import logger from '../utils/logger.js';
+
 export default function registerShoukakuEvents(shoukaku) {
     shoukaku.on('ready', (name) => {
-        console.log(`✅ Lavalink ${name}: Connected!`);
+        logger.info(`Lavalink ${name}: conectado`);
     });
 
     shoukaku.on('error', (name, error) => {
-        console.error(`❌ Lavalink ${name}: Error -`, error);
+        logger.error(`Lavalink ${name}: error`, { error: error?.message });
     });
 
     shoukaku.on('close', (name, code, reason) => {
-        console.warn(`⚠️ Lavalink ${name}: Closed - Code: ${code}, Reason: ${reason || 'No reason'}`);
+        logger.warn(`Lavalink ${name}: cerrado`, { code, reason: reason || 'sin motivo' });
     });
 
     shoukaku.on('disconnect', (name, players, moved) => {
-        console.warn(`⚠️ Lavalink ${name}: Disconnected - Players: ${players.length}, Moved: ${moved}`);
-        if (players && players.length > 0) {
+        logger.warn(`Lavalink ${name}: desconectado`, { players: players.length, moved });
+        if (players?.length > 0) {
             players.forEach(player => {
                 try {
                     if (player && !moved) {
                         player.destroy().catch(err => {
-                            console.error(`Error destroying player ${player.guildId}:`, err);
+                            logger.error(`Error destruyendo player tras desconexión`, { guildId: player.guildId, error: err.message });
                         });
                     }
                 } catch (err) {
-                    console.error('Error handling disconnected player:', err);
+                    logger.error('Error manejando player desconectado', { error: err.message });
                 }
             });
         }
@@ -40,7 +42,7 @@ export default function registerShoukakuEvents(shoukaku) {
             info.includes('Server Update') ||
             info.includes('State Update')
         )) {
-            console.log(`[DEBUG] ${name}:`, info);
+            logger.debug(`[${name}] ${info}`);
         }
     });
 }

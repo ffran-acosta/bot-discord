@@ -2,6 +2,7 @@ import { searchAndPlayRelatedSong } from '../services/autoplay.js';
 import { incrementSongsPlayed } from '../services/stats.js';
 import { scheduleDisconnect } from '../services/timers.js';
 import { stopNowPlayingUpdates, syncNowPlayingPanel } from '../services/nowPlayingMessage.js';
+import logger from '../utils/logger.js';
 
 export default function registerPlayerEndEvent(kazagumo, client) {
     kazagumo.on('playerEnd', async (player) => {
@@ -10,7 +11,7 @@ export default function registerPlayerEndEvent(kazagumo, client) {
 
             const guild = client.guilds.cache.get(player.guildId);
             if (!guild) {
-                try { await player.destroy(); } catch (e) {}
+                try { await player.destroy(); } catch { /* ignore */ }
                 return;
             }
 
@@ -22,19 +23,17 @@ export default function registerPlayerEndEvent(kazagumo, client) {
                 player.queue.add(endedTrack);
             } else if (mode === 'queue' && endedTrack && queueLength === 0 && player.queue.previous.length > 0) {
                 const ordered = [...player.queue.previous].reverse();
-                for (const t of ordered) {
-                    player.queue.add(t);
-                }
+                for (const t of ordered) player.queue.add(t);
             }
             queueLength = player.queue.length;
 
-            console.log(`🎵 Track ended | Guild: ${player.guildId} | Queue remaining: ${queueLength} | Was: ${endedTrack?.title}`);
+            logger.info('Pista finalizada', { guildId: player.guildId, track: endedTrack?.title, queueRemaining: queueLength });
 
             if (queueLength > 0) {
                 await new Promise(resolve => setTimeout(resolve, 400));
                 if (player.queue.current && player.textId) {
                     await syncNowPlayingPanel(client, kazagumo, player).catch(err =>
-                        console.error('Error syncing now playing:', err)
+                        logger.error('Error sincronizando panel now-playing', { error: err.message })
                     );
                 }
             } else {
@@ -46,7 +45,7 @@ export default function registerPlayerEndEvent(kazagumo, client) {
                         await stopNowPlayingUpdates(client, player.guildId);
                     } else {
                         await syncNowPlayingPanel(client, kazagumo, player).catch(err =>
-                            console.error('Error syncing now playing:', err)
+                            logger.error('Error sincronizando panel now-playing (autoplay)', { error: err.message })
                         );
                     }
                 } else {
@@ -55,7 +54,7 @@ export default function registerPlayerEndEvent(kazagumo, client) {
                 }
             }
         } catch (error) {
-            console.error('Error in playerEnd handler:', error);
+            logger.error('Error en playerEnd', { guildId: player.guildId, error: error.message, stack: error.stack });
         }
     });
 }

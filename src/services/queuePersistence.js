@@ -3,6 +3,7 @@ import { readFile, writeFile } from 'fs/promises';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { KazagumoTrack } from 'kazagumo';
+import logger from '../utils/logger.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const dataDir = join(__dirname, '..', '..', 'data');
@@ -37,9 +38,7 @@ function trackToPlain(track) {
 export async function saveQueues(kazagumo) {
     try {
         mkdirSync(dataDir, { recursive: true });
-    } catch {
-        // ignore
-    }
+    } catch { /* ignore */ }
 
     const guilds = {};
     for (const player of kazagumo.players.values()) {
@@ -69,11 +68,10 @@ export async function saveQueues(kazagumo) {
     };
 
     await writeFile(queuesPath, JSON.stringify(payload, null, 2), 'utf8');
+    logger.info(`Colas guardadas (${Object.keys(guilds).length} guild(s))`);
 }
 
 /**
- * Carga `data/queues.json`, guarda por guild en memoria (pendiente hasta /play)
- * y avisa en el canal de texto guardado si sigue existiendo.
  * @param {import('kazagumo').Kazagumo} kazagumo
  * @param {import('discord.js').Client} client
  */
@@ -89,6 +87,7 @@ export async function restoreQueues(kazagumo, client) {
     try {
         data = JSON.parse(raw);
     } catch {
+        logger.warn('queues.json malformado, ignorando');
         return;
     }
 
@@ -110,6 +109,8 @@ export async function restoreQueues(kazagumo, client) {
             _autoplayContext: entry._autoplayContext ?? null
         });
 
+        logger.info('Cola pendiente cargada para restauración', { guildId });
+
         const textId = entry.textId;
         if (!textId) continue;
 
@@ -121,9 +122,7 @@ export async function restoreQueues(kazagumo, client) {
                         '📂 **Cola guardada** de la sesión anterior. Uníte a un canal de voz y usá **`/play`** para volver a cargar esa cola en el reproductor.'
                 });
             }
-        } catch {
-            // ignore
-        }
+        } catch { /* ignore */ }
     }
 }
 
@@ -166,9 +165,7 @@ export async function applyPendingRestoreIfAny(kazagumo, client, guildId, reques
             const t = await deserializeTrack(kazagumo, client, p, requesterUser);
             if (t) toAdd.push(t);
         }
-        for (const t of toAdd) {
-            await player.queue.add(t);
-        }
+        for (const t of toAdd) await player.queue.add(t);
 
         if (pending.previous.length > 0) {
             const prev = [];
@@ -186,7 +183,9 @@ export async function applyPendingRestoreIfAny(kazagumo, client, guildId, reques
             const c = await deserializeTrack(kazagumo, client, pending._autoplayContext, requesterUser);
             if (c) player._autoplayContext = c;
         }
+
+        logger.info('Cola restaurada correctamente', { guildId, tracks: toAdd.length });
     } catch (err) {
-        console.error('queuePersistence: apply failed', err);
+        logger.error('Error restaurando cola', { guildId, error: err.message });
     }
 }

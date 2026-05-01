@@ -1,4 +1,5 @@
 import { syncNowPlayingPanel, stopNowPlayingUpdates } from '../services/nowPlayingMessage.js';
+import logger from '../utils/logger.js';
 
 /**
  * @param {import('discord.js').ButtonInteraction} interaction
@@ -27,8 +28,7 @@ export async function tryHandlePlayerButtons(interaction, kazagumo, client) {
         return true;
     }
 
-    const member = interaction.member;
-    const voiceChannel = member?.voice?.channel;
+    const voiceChannel = interaction.member?.voice?.channel;
     if (!voiceChannel || player.voiceId !== voiceChannel.id) {
         await interaction.reply({ content: '❌ Tenés que estar en el mismo canal de voz que el bot.', flags: 64 }).catch(() => {});
         return true;
@@ -58,13 +58,11 @@ export async function tryHandlePlayerButtons(interaction, kazagumo, client) {
                 break;
         }
     } catch (err) {
-        console.error('Player button action:', err);
+        logger.error('Error ejecutando acción de botón de player', { action, guildId, error: err.message });
     }
 
     const p = kazagumo.players.get(interaction.guild.id);
-    if (p) {
-        await syncNowPlayingPanel(client, kazagumo, p);
-    }
+    if (p) await syncNowPlayingPanel(client, kazagumo, p);
 
     return true;
 }

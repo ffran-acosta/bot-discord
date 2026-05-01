@@ -1,4 +1,5 @@
 import { scheduleEmptyChannelDisconnect, cancelEmptyChannelDisconnect } from '../services/timers.js';
+import logger from '../utils/logger.js';
 
 export default function registerVoiceStateUpdateEvent(client, kazagumo) {
     client.on('voiceStateUpdate', async (oldState, newState) => {
@@ -6,12 +7,10 @@ export default function registerVoiceStateUpdateEvent(client, kazagumo) {
         const player = kazagumo.players.get(guildId);
 
         if (newState.member?.id !== client.user?.id && player?.voiceId) {
-            const botChannelId = player.voiceId;
-            const channel = oldState.guild.channels.cache.get(botChannelId);
+            const channel = oldState.guild.channels.cache.get(player.voiceId);
             if (!channel) return;
 
             const humanCount = channel.members.filter(m => !m.user.bot).size;
-
             if (humanCount === 0) {
                 scheduleEmptyChannelDisconnect(guildId, kazagumo);
             } else {
@@ -23,30 +22,27 @@ export default function registerVoiceStateUpdateEvent(client, kazagumo) {
         if (newState.member?.id !== client.user?.id) return;
 
         if (oldState.channelId && !newState.channelId && player) {
-            console.log(`⚠️ Bot was manually disconnected from voice channel in guild ${guildId}`);
+            logger.warn('Bot desconectado manualmente del canal de voz', { guildId });
             await new Promise(resolve => setTimeout(resolve, 3000));
 
             const currentPlayer = kazagumo.players.get(guildId);
             if (!currentPlayer) return;
 
-            const guild = newState.guild;
-            const botMember = guild.members.cache.get(client.user.id);
+            const botMember = newState.guild.members.cache.get(client.user.id);
             if (botMember?.voice?.channel) {
-                console.log(`Bot reconnected to channel ${botMember.voice.channel.id}, not destroying player`);
+                logger.info('Bot reconectado a canal de voz, no se destruye el player', { guildId });
                 return;
             }
 
             try {
-                if (currentPlayer.voiceId && currentPlayer.guildId) {
-                    await currentPlayer.destroy().catch(err => {
-                        if (!err.message?.includes('already destroyed') && err.code !== 1) {
-                            console.error(`Error destroying player after manual disconnect:`, err);
-                        }
-                    });
-                }
+                await currentPlayer.destroy().catch(err => {
+                    if (!err.message?.includes('already destroyed') && err.code !== 1) {
+                        logger.error('Error destruyendo player tras desconexión manual', { guildId, error: err.message });
+                    }
+                });
             } catch (err) {
                 if (!err.message?.includes('already destroyed') && err.code !== 1) {
-                    console.error(`Error checking player state:`, err);
+                    logger.error('Error verificando estado del player', { guildId, error: err.message });
                 }
             }
         }

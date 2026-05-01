@@ -1,11 +1,10 @@
 import express from 'express';
+import logger from '../utils/logger.js';
 
 function resolveStatus(client, kazagumo) {
     if (!client.isReady()) return 'down';
-
     const nodes = [...kazagumo.shoukaku.nodes.values()];
     const connected = nodes.filter(node => node.state === 1).length;
-
     if (nodes.length > 0 && connected === 0) return 'degraded';
     return 'ok';
 }
@@ -22,8 +21,8 @@ export function startHealthcheckServer(client, kazagumo, port = Number(process.e
         const nodes = [...kazagumo.shoukaku.nodes.values()];
         const connectedNodes = nodes.filter(node => node.state === 1).length;
 
-        const code = status === 'ok' ? 200 : status === 'degraded' ? 200 : 503;
-        res.status(code).json({
+        const httpCode = status === 'ok' || status === 'degraded' ? 200 : 503;
+        res.status(httpCode).json({
             status,
             uptimeMs: Math.floor(process.uptime() * 1000),
             guilds: client.guilds.cache.size,
@@ -36,6 +35,6 @@ export function startHealthcheckServer(client, kazagumo, port = Number(process.e
     });
 
     return app.listen(port, () => {
-        console.log(`🩺 Healthcheck HTTP listening on :${port}`);
+        logger.info(`Healthcheck HTTP escuchando en :${port}`);
     });
 }

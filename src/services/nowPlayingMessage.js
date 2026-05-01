@@ -1,4 +1,5 @@
 import { buildNowPlayingEmbed, buildPlayerButtons } from '../ui/playerEmbed.js';
+import logger from '../utils/logger.js';
 
 /** @type {Map<string, { channelId: string, messageId: string, timer: ReturnType<typeof setInterval> | null }>} */
 const panelState = new Map();
@@ -26,15 +27,9 @@ export async function stopNowPlayingUpdates(client, guildId) {
         const ch = await client.channels.fetch(s.channelId).catch(() => null);
         const msg = await ch?.messages.fetch(s.messageId).catch(() => null);
         if (msg?.editable) {
-            await msg.edit({
-                content: '⏹️ Sesión finalizada.',
-                embeds: [],
-                components: []
-            });
+            await msg.edit({ content: '⏹️ Sesión finalizada.', embeds: [], components: [] });
         }
-    } catch {
-        // ignore
-    }
+    } catch { /* ignore */ }
 }
 
 /**
@@ -62,7 +57,8 @@ async function runTick(client, kazagumo, guildId) {
             return;
         }
         await msg.edit({ embeds: [embed], components, content: null });
-    } catch {
+    } catch (err) {
+        logger.warn('Error actualizando panel now-playing, deteniendo updates', { guildId, error: err.message });
         await stopNowPlayingUpdates(client, guildId);
     }
 }
@@ -104,7 +100,8 @@ export async function syncNowPlayingPanel(client, kazagumo, player) {
         } else {
             msg = await channel.send({ embeds: [embed], components });
         }
-    } catch {
+    } catch (err) {
+        logger.warn('Error enviando/editando panel now-playing', { guildId, error: err.message });
         return null;
     }
 

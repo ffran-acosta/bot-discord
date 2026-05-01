@@ -14,8 +14,14 @@ import registerShoukakuEvents from './src/events/shoukaku.js';
 import { tryHandlePlayerButtons } from './src/events/buttonInteraction.js';
 import { startHealthcheckServer } from './src/services/healthcheck.js';
 import { saveQueues, restoreQueues } from './src/services/queuePersistence.js';
+import logger from './src/utils/logger.js';
 
 config();
+
+if (!process.env.DISCORD_TOKEN) {
+    logger.error('DISCORD_TOKEN no encontrado en las variables de entorno.');
+    process.exit(1);
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -29,7 +35,7 @@ const client = new Client({
     ]
 });
 
-console.log(`🔍 Fetching Lavalink nodes from public API...`);
+logger.info('Obteniendo nodos de Lavalink desde API pública...');
 const apiNodes = await fetchLavalinkNodes();
 
 const seenUrls = new Set();
@@ -39,8 +45,8 @@ const nodes = [primaryNode, ...apiNodes, ...fallbackNodes].filter(n => {
     return true;
 });
 
-console.log(`🎵 Lavalink nodes ready (${nodes.length} total):`);
-nodes.forEach((n, i) => console.log(`   ${i + 1}. ${n.url}  [${n.name}]`));
+logger.info(`Nodos de Lavalink listos (${nodes.length} total)`);
+nodes.forEach((n, i) => logger.info(`  ${i + 1}. ${n.url}  [${n.name}]`));
 
 const connector = new Connectors.DiscordJS(client);
 
@@ -86,13 +92,9 @@ registerPlayerDestroyEvent(kazagumo, client);
 registerVoiceStateUpdateEvent(client, kazagumo);
 const healthcheckServer = startHealthcheckServer(client, kazagumo);
 
-client.once('ready', () => {
-    console.log(`🤖 Bot connected as ${client.user.tag}!`);
-    console.log(`📊 Servers: ${client.guilds.cache.size}`);
-});
-
-client.once('clientReady', async () => {
-    console.log(`✅ Client fully ready!`);
+client.once('ready', async () => {
+    logger.info(`Bot conectado como ${client.user.tag}`);
+    logger.info(`Servidores: ${client.guilds.cache.size}`);
     await restoreQueues(kazagumo, client);
 });
 
@@ -107,11 +109,8 @@ client.on('interactionCreate', async interaction => {
     try {
         await command.execute(interaction, kazagumo);
     } catch (error) {
-        console.error('Error executing command:', error);
-        const reply = {
-            content: '❌ There was an error executing this command!',
-            flags: 64
-        };
+        logger.error('Error ejecutando comando', { command: interaction.commandName, error: error.message, stack: error.stack });
+        const reply = { content: '❌ Ocurrió un error al ejecutar el comando.', flags: 64 };
         if (interaction.replied || interaction.deferred) {
             await interaction.followUp(reply);
         } else {
@@ -120,61 +119,43 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-process.on('unhandledRejection', (error, promise) => {
-    console.error('Unhandled promise rejection:', error);
-    if (error.stack) {
-        console.error('Stack trace:', error.stack);
-    }
+process.on('unhandledRejection', (error) => {
+    logger.error('Unhandled promise rejection', { error: error?.message, stack: error?.stack });
 });
 
 process.on('uncaughtException', (error) => {
-    console.error('Uncaught exception:', error);
-    if (error.stack) {
-        console.error('Stack trace:', error.stack);
-    }
+    logger.error('Uncaught exception', { error: error?.message, stack: error?.stack });
 });
 
 let shuttingDown = false;
 async function gracefulShutdown() {
     if (shuttingDown) return;
     shuttingDown = true;
-    console.log('\n🛑 Starting graceful shutdown...');
+    logger.info('Iniciando apagado graceful...');
     try {
         await saveQueues(kazagumo);
     } catch (err) {
-        console.error('Error saving queues:', err);
+        logger.error('Error guardando colas', { error: err.message });
     }
     for (const player of kazagumo.players.values()) {
         try {
             await player.destroy();
         } catch (err) {
-            console.error(`Error destroying player ${player.guildId}:`, err);
+            logger.error(`Error destruyendo player ${player.guildId}`, { error: err.message });
         }
     }
     client.destroy();
     await new Promise(resolve => {
         healthcheckServer.close(() => resolve());
     });
-    console.log('✅ Graceful shutdown complete');
+    logger.info('Apagado graceful completado');
     process.exit(0);
 }
 
-process.on('SIGINT', () => {
-    void gracefulShutdown();
-});
-
-process.on('SIGTERM', () => {
-    void gracefulShutdown();
-});
-
-if (!process.env.DISCORD_TOKEN) {
-    console.error('❌ DISCORD_TOKEN not found in environment variables!');
-    console.error('💡 Make sure to configure DISCORD_TOKEN in your Wispbyte panel');
-    process.exit(1);
-}
+process.on('SIGINT', () => { void gracefulShutdown(); });
+process.on('SIGTERM', () => { void gracefulShutdown(); });
 
 client.login(process.env.DISCORD_TOKEN).catch(error => {
-    console.error('❌ Error logging in:', error.message);
-    console.error('💡 Verify that DISCORD_TOKEN is correct');
+    logger.error('Error al iniciar sesión', { error: error.message });
     process.exit(1);
 });

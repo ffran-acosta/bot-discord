@@ -13,6 +13,41 @@ const queuesPath = join(dataDir, 'queues.json');
 /** @type {Map<string, object>} */
 const pendingByGuild = new Map();
 
+async function hydratePlayerFromPending(kazagumo, client, guildId, pending, requesterUser) {
+    const player = kazagumo.players.get(guildId);
+    if (!player) return { ok: false, tracks: 0 };
+
+    const toAdd = [];
+    if (pending.current) {
+        const t = await deserializeTrack(kazagumo, client, pending.current, requesterUser);
+        if (t) toAdd.push(t);
+    }
+    for (const p of pending.queue) {
+        const t = await deserializeTrack(kazagumo, client, p, requesterUser);
+        if (t) toAdd.push(t);
+    }
+    for (const t of toAdd) await player.queue.add(t);
+
+    if (pending.previous.length > 0) {
+        const prev = [];
+        for (const p of pending.previous) {
+            const t = await deserializeTrack(kazagumo, client, p, requesterUser);
+            if (t) prev.push(t);
+        }
+        player.queue.previous = prev;
+    }
+
+    setLoopMode(guildId, pending._loopMode ?? 'off');
+    player.setLoop('none');
+    setAutoplay(guildId, pending._autoplay);
+    if (pending._autoplay && pending._autoplayContext) {
+        const c = await deserializeTrack(kazagumo, client, pending._autoplayContext, requesterUser);
+        if (c) setAutoplayContext(guildId, c);
+    }
+
+    return { ok: true, tracks: toAdd.length, player };
+}
+
 function trackToPlain(track) {
     if (!track || !track.track) return null;
     const rid = track.requester?.id != null ? String(track.requester.id) : null;
@@ -58,6 +93,8 @@ export async function saveQueues(kazagumo) {
             current,
             queue,
             previous,
+            _positionMs: Math.max(0, Number(player.position ?? 0)),
+            _wasPlaying: Boolean(player.playing),
             _loopMode: s?.loopMode ?? 'off',
             _autoplay: Boolean(s?.autoplay),
             _autoplayContext: ctx
@@ -107,12 +144,64 @@ export async function restoreQueues(kazagumo, client) {
             current: entry.current ?? null,
             queue: Array.isArray(entry.queue) ? entry.queue : [],
             previous: Array.isArray(entry.previous) ? entry.previous : [],
+            _positionMs: Math.max(0, Number(entry._positionMs ?? 0)),
+            _wasPlaying: Boolean(entry._wasPlaying),
             _loopMode: entry._loopMode ?? 'off',
             _autoplay: Boolean(entry._autoplay),
             _autoplayContext: entry._autoplayContext ?? null
         });
 
         logger.info('Cola pendiente cargada para restauración', { guildId });
+
+        if (entry._wasPlaying && entry.voiceId) {
+            try {
+                const voice = await guild.channels.fetch(entry.voiceId).catch(() => null);
+                const hasHumans = Boolean(voice?.isVoiceBased?.() && voice.members?.some(m => !m.user.bot));
+
+                if (!voice?.isVoiceBased?.()) {
+                    logger.warn('No se pudo hacer rejoin automático: canal de voz no disponible', { guildId, voiceId: entry.voiceId });
+                } else {
+                    const createOptions = {
+                        guildId,
+                        voiceId: entry.voiceId,
+                        deaf: true
+                    };
+                    if (entry.textId) createOptions.textId = entry.textId;
+
+                    const player = await kazagumo.createPlayer(createOptions);
+
+                    const hydrated = await hydratePlayerFromPending(
+                        kazagumo,
+                        client,
+                        guildId,
+                        pendingByGuild.get(guildId),
+                        client.user
+                    );
+
+                    if (hydrated.ok && hydrated.player?.queue.current) {
+                        await hydrated.player.play();
+                        if (entry._positionMs > 0) {
+                            await hydrated.player.seek(entry._positionMs).catch(() => {});
+                        }
+                        pendingByGuild.delete(guildId);
+                        logger.info('Rejoin automático aplicado tras restart', {
+                            guildId,
+                            voiceId: entry.voiceId,
+                            hadHumansAtRestore: hasHumans,
+                            resumedAtMs: entry._positionMs
+                        });
+                        continue;
+                    }
+
+                    await player.destroy().catch(() => {});
+                }
+            } catch (err) {
+                logger.warn('No se pudo aplicar rejoin automático tras restart', {
+                    guildId,
+                    error: err.message
+                });
+            }
+        }
 
         const textId = entry.textId;
         if (!textId) continue;
@@ -122,7 +211,7 @@ export async function restoreQueues(kazagumo, client) {
             if (ch && ch.isTextBased()) {
                 await ch.send({
                     content:
-                        '📂 **Cola guardada** de la sesión anterior. Uníte a un canal de voz y usá **`/play`** para volver a cargar esa cola en el reproductor.'
+                        '📂 **Cola guardada** de la sesión anterior. Si no se restauró automáticamente, ejecutá **`/play <búsqueda o URL>`** para reactivar el reproductor y cargar la cola.'
                 });
             }
         } catch { /* ignore */ }
@@ -153,41 +242,14 @@ export async function applyPendingRestoreIfAny(kazagumo, client, guildId, reques
     const pending = pendingByGuild.get(guildId);
     if (!pending) return;
 
-    const player = kazagumo.players.get(guildId);
-    if (!player) return;
+    if (!kazagumo.players.get(guildId)) return;
 
     pendingByGuild.delete(guildId);
 
     try {
-        const toAdd = [];
-        if (pending.current) {
-            const t = await deserializeTrack(kazagumo, client, pending.current, requesterUser);
-            if (t) toAdd.push(t);
-        }
-        for (const p of pending.queue) {
-            const t = await deserializeTrack(kazagumo, client, p, requesterUser);
-            if (t) toAdd.push(t);
-        }
-        for (const t of toAdd) await player.queue.add(t);
+        const hydrated = await hydratePlayerFromPending(kazagumo, client, guildId, pending, requesterUser);
 
-        if (pending.previous.length > 0) {
-            const prev = [];
-            for (const p of pending.previous) {
-                const t = await deserializeTrack(kazagumo, client, p, requesterUser);
-                if (t) prev.push(t);
-            }
-            player.queue.previous = prev;
-        }
-
-        setLoopMode(guildId, pending._loopMode ?? 'off');
-        player.setLoop('none');
-        setAutoplay(guildId, pending._autoplay);
-        if (pending._autoplay && pending._autoplayContext) {
-            const c = await deserializeTrack(kazagumo, client, pending._autoplayContext, requesterUser);
-            if (c) setAutoplayContext(guildId, c);
-        }
-
-        logger.info('Cola restaurada correctamente', { guildId, tracks: toAdd.length });
+        logger.info('Cola restaurada correctamente', { guildId, tracks: hydrated.tracks });
     } catch (err) {
         logger.error('Error restaurando cola', { guildId, error: err.message });
     }

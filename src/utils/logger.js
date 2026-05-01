@@ -43,29 +43,28 @@ function formatMetaConsole(meta) {
     const user = meta.user != null ? String(meta.user) : null;
     const query = meta.query != null ? String(meta.query) : null;
 
-    const lines = [];
+    const parts = [];
 
+    if (guildId) parts.push(`guild=${guildId}`);
+    if (user) parts.push(`usr=${user}`);
     if (channelName || channelId) {
         const idPart = channelId ? `#${channelId.slice(-6)}` : '';
-        lines.push(`canal=${channelName ?? '?'}${idPart ? ` ${idPart}` : ''}`);
+        parts.push(`canal=${channelName ?? '?'}${idPart ? ` ${idPart}` : ''}`);
     }
-    if (users) lines.push(`usuarios=${users}`);
-    if (user) lines.push(`usr=${user}`);
-    if (query) lines.push(`q=${query.length > 120 ? `${query.slice(0, 117)}…` : query}`);
-    if (guildId) lines.push(`guild=${guildId}`);
+    if (users) parts.push(`usuarios=${users}`);
+    if (query) parts.push(`q=${query.length > 120 ? `${query.slice(0, 117)}…` : query}`);
 
-    const restKeys = keys.filter(
-        k =>
-            !['channelName', 'channelId', 'users', 'guildId', 'user', 'query'].includes(k)
-    );
+    const restKeys = keys
+        .filter(k => !['channelName', 'channelId', 'users', 'guildId', 'user', 'query'].includes(k))
+        .sort();
     for (const k of restKeys) {
         const v = meta[k];
         if (v === undefined) continue;
         const s = typeof v === 'object' ? JSON.stringify(v) : String(v);
-        lines.push(`${k}=${s.length > 80 ? `${s.slice(0, 77)}…` : s}`);
+        parts.push(`${k}=${s.length > 80 ? `${s.slice(0, 77)}…` : s}`);
     }
 
-    return lines.length ? `\n  ${lines.join('\n  ')}` : '';
+    return parts.length ? ` | ${parts.join(' | ')}` : '';
 }
 
 const fileLineFormat = format.printf(({ level, message, timestamp, stack, ...meta }) => {

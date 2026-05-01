@@ -1,18 +1,11 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { applyPendingRestoreIfAny } from '../src/services/queuePersistence.js';
-
-const MAX_PLAYLIST_TRACKS = 200;
-
-function isLikelySpotifyUrl(query) {
-    const q = query.trim();
-    return /^https?:\/\/(open\.)?spotify\.com\//i.test(q) || /spotify:(track|album|playlist|episode):/i.test(q);
-}
-
-function hasYoutubeListParameter(query) {
-    const q = query.trim();
-    if (!/^https?:\/\//i.test(q)) return false;
-    return /[?&]list=[^&\s#]+/i.test(q) || /youtube\.com\/playlist/i.test(q);
-}
+import {
+    MAX_PLAYLIST_TRACKS,
+    formatTrackDuration,
+    hasYoutubeListParameter,
+    isLikelySpotifyUrl
+} from '../src/utils/playSearchShared.js';
 
 export default {
     data: new SlashCommandBuilder()
@@ -245,7 +238,7 @@ export default {
                     .setDescription(`**[${track.title}](${track.uri})**`)
                     .addFields(
                         { name: '👤 Requested by', value: `${interaction.user}`, inline: true },
-                        { name: '⏱️ Duration', value: track.length > 0 ? formatTime(track.length) : 'Live', inline: true }
+                        { name: '⏱️ Duration', value: track.length > 0 ? formatTrackDuration(track.length) : 'Live', inline: true }
                     );
             }
 
@@ -300,10 +293,3 @@ export default {
         return attemptPlay();
     }
 };
-
-function formatTime(ms) {
-    const seconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-}

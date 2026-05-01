@@ -60,21 +60,28 @@ export function buildNowPlayingEmbed(player) {
 export function buildPlayerButtons(player) {
     const guildId = player.guildId;
     const hasTrack = Boolean(player.queue.current);
-    const row = new ActionRowBuilder().addComponents(
+    const transportRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId(`player:togglepause:${guildId}`)
-            .setLabel(player.paused ? 'Reanudar' : 'Pausar')
+            .setLabel(player.paused ? '▶️' : '⏸️')
             .setStyle(player.paused ? ButtonStyle.Success : ButtonStyle.Primary)
             .setDisabled(!hasTrack),
         new ButtonBuilder()
             .setCustomId(`player:skip:${guildId}`)
-            .setLabel('Saltear')
+            .setLabel('⏭️')
             .setStyle(ButtonStyle.Secondary)
             .setDisabled(!hasTrack),
         new ButtonBuilder()
             .setCustomId(`player:stop:${guildId}`)
-            .setLabel('Detener')
+            .setLabel('◼️')
             .setStyle(ButtonStyle.Danger)
     );
-    return [row];
+    const extrasRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId(`player:clearqueue:${guildId}`)
+            .setLabel('🗑️')
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(!hasTrack)
+    );
+    return [transportRow, extrasRow];
 }

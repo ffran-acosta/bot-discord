@@ -45,7 +45,7 @@ export async function tryHandlePlayerButtons(interaction, kazagumo, client) {
             }
             case 'skip': {
                 if (!player.queue.current) break;
-                player.skip();
+                await player.skip();
                 break;
             }
             case 'stop': {
@@ -53,6 +53,11 @@ export async function tryHandlePlayerButtons(interaction, kazagumo, client) {
                 await player.destroy();
                 await stopNowPlayingUpdates(client, guildId);
                 return true;
+            }
+            case 'clearqueue': {
+                if (!player.queue.current) break;
+                player.queue.clear();
+                break;
             }
             default:
                 break;

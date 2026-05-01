@@ -2,6 +2,10 @@
 
 Guia rapida para operar el bot en Oracle sin mezclar infraestructura con documentacion funcional del bot.
 
+## Configuracion local privada
+
+Los datos sensibles (IP real, ruta de key y alias local) estan en `docs/oracle-runbook.local.md` y ese archivo debe quedar fuera de Git.
+
 ## PM2 basico
 
 ### Dejar un solo proceso
@@ -31,6 +35,20 @@ pm2 save
 pm2 status
 pm2 logs bot-discord --lines 50
 pm2 restart bot-discord
+```
+
+## Deploy rapido (sin entrar a la VM)
+
+Desde la raiz del proyecto:
+
+```bash
+./deploy.sh
+```
+
+Si el nombre del proceso en PM2 es `bot-discord`:
+
+```bash
+DEPLOY_PROCESS=bot-discord ./deploy.sh
 ```
 
 ## Shortcut `botlog` (PowerShell)
@@ -67,6 +85,16 @@ Uso:
 
 ```bash
 botlog
+```
+
+## Alias SSH configurado
+
+El alias `oracle-bot` esta configurado en `~/.ssh/config`.
+
+Uso:
+
+```bash
+ssh oracle-bot
 ```
 
 ## Sobre SSH

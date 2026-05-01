@@ -54,6 +54,6 @@ export function cancelEmptyChannelDisconnect(guildId) {
     if (timer) {
         clearTimeout(timer);
         emptyChannelTimers.delete(guildId);
-        logger.debug('Timer de canal vacío cancelado', { guildId });
+        logger.info('Canal de voz con usuarios nuevamente, desconexión cancelada', { guildId });
     }
 }

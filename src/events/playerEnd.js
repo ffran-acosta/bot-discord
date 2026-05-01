@@ -12,8 +12,19 @@ export default function registerPlayerEndEvent(kazagumo, client) {
                 return;
             }
 
-            const queueLength = player.queue.length;
+            const mode = player._loopMode ?? 'off';
             const endedTrack = player.queue.current;
+            let queueLength = player.queue.length;
+
+            if (mode === 'track' && endedTrack && queueLength === 0) {
+                player.queue.add(endedTrack);
+            } else if (mode === 'queue' && endedTrack && queueLength === 0 && player.queue.previous.length > 0) {
+                const ordered = [...player.queue.previous].reverse();
+                for (const t of ordered) {
+                    player.queue.add(t);
+                }
+            }
+            queueLength = player.queue.length;
 
             console.log(`🎵 Track ended | Guild: ${player.guildId} | Queue remaining: ${queueLength} | Was: ${endedTrack?.title}`);
 

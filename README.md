@@ -645,6 +645,12 @@ Discord-Music-Bot/
 
 ---
 
+## ☁️ Hosting Runbook
+
+Oracle/SSH/PM2 operation was moved to `docs/oracle-runbook.md` to keep this README focused on the bot itself.
+
+---
+
 ## 🔐 Bot Permissions
 
 When inviting the bot, make sure to give it these permissions:

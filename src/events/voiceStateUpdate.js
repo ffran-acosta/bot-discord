@@ -10,10 +10,20 @@ export default function registerVoiceStateUpdateEvent(client, kazagumo) {
             const channel = oldState.guild.channels.cache.get(player.voiceId);
             if (!channel) return;
 
-            const humanCount = channel.members.filter(m => !m.user.bot).size;
+            const humanMembers = channel.members.filter(m => !m.user.bot);
+            const humanCount = humanMembers.size;
+            const users = humanMembers.map(member => member.displayName).join(', ') || 'sin usuarios';
+            const channelLogData = {
+                guildId,
+                channelId: channel.id,
+                channelName: channel.name,
+                users
+            };
             if (humanCount === 0) {
+                logger.info('Canal detectado sin usuarios', channelLogData);
                 scheduleEmptyChannelDisconnect(guildId, kazagumo);
             } else {
+                logger.info('Canal detectado con usuarios', channelLogData);
                 cancelEmptyChannelDisconnect(guildId);
             }
             return;

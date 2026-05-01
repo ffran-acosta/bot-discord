@@ -15,11 +15,11 @@ export async function searchAndPlayRelatedSong(player, kazagumo, client, guild) 
     const contextTrack = getAutoplayContext(guildId) || player.queue.current;
 
     if (!contextTrack) {
-        logger.warn('No context track available for autoplay', { guildId });
+        logger.warn('Sin pista de contexto para auto-reproducir', { guildId });
         return false;
     }
 
-    logger.info('Autoplay: buscando canciones relacionadas', { guildId, context: contextTrack.title });
+    logger.info('Auto-reproducir: buscando canciones relacionadas', { guildId, context: contextTrack.title });
 
     try {
         let searchQuery = contextTrack.title;
@@ -28,12 +28,12 @@ export async function searchAndPlayRelatedSong(player, kazagumo, client, guild) 
         if (artistMatch) {
             const artistName = artistMatch[1].trim();
             searchQuery = artistName;
-            logger.debug(`Autoplay: artista extraído: ${artistName}`, { guildId });
+            logger.debug(`Auto-reproducir: artista extraído: ${artistName}`, { guildId });
         } else {
             searchQuery = `radio ${contextTrack.title}`;
         }
 
-        logger.debug(`Autoplay: buscando "${searchQuery}"`, { guildId });
+        logger.debug(`Auto-reproducir: buscando "${searchQuery}"`, { guildId });
 
         const result = await kazagumo.search(searchQuery, {
             requester: client.user
@@ -82,7 +82,7 @@ export async function searchAndPlayRelatedSong(player, kazagumo, client, guild) 
 
             if (relatedTracks.length > 0) {
                 const relatedTrack = relatedTracks[0];
-                logger.info(`Autoplay: canción encontrada: ${relatedTrack.title}`, { guildId });
+                logger.info(`Auto-reproducir: canción encontrada: ${relatedTrack.title}`, { guildId });
 
                 pushAutoplayHistory(guildId, relatedTrack);
                 setAutoplayContext(guildId, relatedTrack);
@@ -109,7 +109,7 @@ export async function searchAndPlayRelatedSong(player, kazagumo, client, guild) 
                     if (channel?.isTextBased?.()) {
                         const embed = new EmbedBuilder()
                             .setColor(0x5865F2)
-                            .setTitle('🔄 Autoplay')
+                            .setTitle('🔄 Auto-reproducir')
                             .setDescription(`**Reproduciendo tema relacionado:**\n[${relatedTrack.title}](${relatedTrack.uri})`)
                             .addFields(
                                 { name: '⏱️ Duración', value: relatedTrack.length > 0 ? formatTime(relatedTrack.length) : 'En vivo', inline: true }
@@ -120,19 +120,19 @@ export async function searchAndPlayRelatedSong(player, kazagumo, client, guild) 
                         try {
                             await channel.send({ embeds: [embed] });
                         } catch (error) {
-                            logger.error('Error enviando notificación de autoplay', { guildId, error: error.message });
+                            logger.error('Error enviando notificación de auto-reproducir', { guildId, error: error.message });
                         }
                     }
                 }
                 return true;
             }
-            logger.warn('Autoplay: no se encontraron canciones distintas', { guildId });
+            logger.warn('Auto-reproducir: no se encontraron canciones distintas', { guildId });
             return false;
         }
-        logger.warn('Autoplay: sin resultados de búsqueda', { guildId });
+        logger.warn('Auto-reproducir: sin resultados de búsqueda', { guildId });
         return false;
     } catch (autoplayError) {
-        logger.error('Error en búsqueda de autoplay', { guildId, error: autoplayError.message });
+        logger.error('Error en búsqueda de auto-reproducir', { guildId, error: autoplayError.message });
         return false;
     }
 }

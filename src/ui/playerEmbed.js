@@ -9,7 +9,7 @@ import { PROGRESS_BAR_WIDTH } from '../config/constants.js';
  */
 export function buildProgressBar(positionMs, durationMs, width = PROGRESS_BAR_WIDTH) {
     if (!durationMs || durationMs <= 0) {
-        return `\`${'░'.repeat(width)}\` · LIVE`;
+        return `\`${'░'.repeat(width)}\` · EN VIVO`;
     }
     const p = Math.min(1, Math.max(0, positionMs / durationMs));
     const filled = Math.round(p * width);

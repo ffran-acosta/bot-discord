@@ -22,11 +22,11 @@ function parseSeekInput(raw) {
 
 export default {
     data: new SlashCommandBuilder()
-        .setName('seek')
+        .setName('adelantar')
         .setDescription('Salta a una posición en la pista actual (mm:ss o segundos)')
         .addStringOption(option =>
             option
-                .setName('time')
+                .setName('tiempo')
                 .setDescription('Tiempo en segundos (ej. 90) o mm:ss (ej. 1:30)')
                 .setRequired(true)
         ),
@@ -49,7 +49,7 @@ export default {
             return interaction.reply('❌ Esta pista no admite seek.');
         }
 
-        const raw = interaction.options.getString('time', true);
+        const raw = interaction.options.getString('tiempo', true);
         const positionMs = parseSeekInput(raw);
         if (positionMs === null || positionMs < 0) {
             return interaction.reply('❌ Tiempo inválido. Usá segundos (ej. `90`) o `mm:ss` / `h:mm:ss`.');
@@ -63,12 +63,12 @@ export default {
         try {
             await player.seek(positionMs);
         } catch (err) {
-            return interaction.reply(`❌ Seek falló: ${err.message || 'error desconocido'}`);
+            return interaction.reply(`❌ No se pudo adelantar: ${err.message || 'error desconocido'}`);
         }
 
         const embed = new EmbedBuilder()
             .setColor(0x5865F2)
-            .setTitle('⏩ Seek')
+            .setTitle('⏩ Adelantado')
             .setDescription(`Posición: **${formatTime(positionMs)}** / ${formatTime(duration)}`)
             .setTimestamp();
 

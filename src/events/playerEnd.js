@@ -36,7 +36,7 @@ export default function registerPlayerEndEvent(kazagumo, client) {
                 await new Promise(resolve => setTimeout(resolve, PLAY_START_DELAY_MS));
                 if (player.queue.current && player.textId) {
                     await syncNowPlayingPanel(client, kazagumo, player).catch(err =>
-                        logger.error('Error sincronizando panel now-playing', { error: err.message })
+                        logger.error('Error sincronizando panel de reproducción', { error: err.message })
                     );
                 }
             } else {
@@ -48,7 +48,7 @@ export default function registerPlayerEndEvent(kazagumo, client) {
                         await stopNowPlayingUpdates(client, player.guildId);
                     } else {
                         await syncNowPlayingPanel(client, kazagumo, player).catch(err =>
-                            logger.error('Error sincronizando panel now-playing (autoplay)', { error: err.message })
+                            logger.error('Error sincronizando panel de reproducción (auto-reproducir)', { error: err.message })
                         );
                     }
                 } else {

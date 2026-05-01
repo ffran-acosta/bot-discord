@@ -4,11 +4,11 @@ import { setLoopMode } from '../src/services/playerState.js';
 
 export default {
     data: new SlashCommandBuilder()
-        .setName('loop')
+        .setName('repetir')
         .setDescription('Configura el modo de repetición de la cola')
         .addStringOption(option =>
             option
-                .setName('mode')
+                .setName('modo')
                 .setDescription('Modo de repetición')
                 .setRequired(true)
                 .addChoices(
@@ -23,7 +23,7 @@ export default {
         if (!guard) return;
         const { player } = guard;
 
-        const mode = interaction.options.getString('mode', true);
+        const mode = interaction.options.getString('modo', true);
         setLoopMode(interaction.guild.id, mode);
         player.setLoop('none');
 

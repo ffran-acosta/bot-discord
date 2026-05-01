@@ -3,7 +3,7 @@ import { requirePlayerInVoice } from '../src/middleware/guards.js';
 
 export default {
     data: new SlashCommandBuilder()
-        .setName('resume')
+        .setName('reanudar')
         .setDescription('Reanuda la reproducción'),
 
     async execute(interaction, kazagumo) {

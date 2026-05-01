@@ -4,7 +4,7 @@ import logger from '../src/utils/logger.js';
 
 export default {
     data: new SlashCommandBuilder()
-        .setName('stop')
+        .setName('parar')
         .setDescription('Detiene la reproducción, vacía la cola y desconecta al bot'),
 
     async execute(interaction, kazagumo) {

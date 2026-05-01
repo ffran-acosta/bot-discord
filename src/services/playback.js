@@ -57,7 +57,7 @@ export async function searchAndEnqueue(interaction, kazagumo, query, { position 
             const searchOpts = { requester: interaction.user };
             if (player.shoukaku?.node?.name) searchOpts.nodeName = player.shoukaku.node.name;
 
-            const logPrefix = position === 'front' ? 'Buscando (playnext)' : 'Buscando';
+            const logPrefix = position === 'front' ? 'Buscando (siguiente-tema)' : 'Buscando';
             logger.debug(`${logPrefix}: ${query}`, { guildId });
             const result = await kazagumo.search(query, searchOpts);
 
@@ -93,7 +93,7 @@ export async function searchAndEnqueue(interaction, kazagumo, query, { position 
 
             logger.info(
                 isPlaylist
-                    ? `Playlist${position === 'front' ? ' (playnext)' : ''}: ${result.playlistName ?? 'Desconocida'} (${tracksToAdd.length} pistas)`
+                    ? `Playlist${position === 'front' ? ' (siguiente-tema)' : ''}: ${result.playlistName ?? 'Desconocida'} (${tracksToAdd.length} pistas)`
                     : `Encontrado: ${track.title}`,
                 { guildId }
             );
@@ -117,7 +117,7 @@ export async function searchAndEnqueue(interaction, kazagumo, query, { position 
                 const plTitle = result.playlistName ?? (hasYoutubeListParameter(query) ? 'YouTube playlist' : 'Playlist');
                 if (position === 'front') {
                     embed
-                        .setTitle('⏩ Playlist — reproducir a continuación')
+                        .setTitle('⏩ Playlist — a continuación')
                         .setDescription(`**${plTitle}** — ${tracksToAdd.length} canción(es) insertadas al frente de la cola`)
                         .addFields({ name: '👤 Pedido por', value: `${interaction.user}`, inline: true });
                 } else {
@@ -172,7 +172,7 @@ export async function searchAndEnqueue(interaction, kazagumo, query, { position 
                 await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
                 return attempt();
             }
-            logger.error(`Error en ${position === 'front' ? 'playnext' : 'play'}`, { guildId, error: err.message, stack: err.stack });
+            logger.error(`Error en ${position === 'front' ? 'siguiente-tema' : 'reproducir'}`, { guildId, error: err.message, stack: err.stack });
             await interaction.editReply(buildPlayErrorMessage(err, query));
         }
     };

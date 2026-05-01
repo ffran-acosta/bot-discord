@@ -3,7 +3,7 @@ import { requirePlayerInVoice } from '../src/middleware/guards.js';
 
 export default {
     data: new SlashCommandBuilder()
-        .setName('clear')
+        .setName('vaciar-cola')
         .setDescription('Vacía la cola (la pista actual sigue sonando)'),
 
     async execute(interaction, kazagumo) {

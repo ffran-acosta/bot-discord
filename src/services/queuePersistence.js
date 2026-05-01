@@ -211,7 +211,7 @@ export async function restoreQueues(kazagumo, client) {
             if (ch && ch.isTextBased()) {
                 await ch.send({
                     content:
-                        '📂 **Cola guardada** de la sesión anterior. Si no se restauró automáticamente, ejecutá **`/play <búsqueda o URL>`** para reactivar el reproductor y cargar la cola.'
+                        '📂 **Cola guardada** de la sesión anterior. Si no se restauró automáticamente, usá **`/reproducir`** (nombre o URL en la opción **consulta**) para reactivar el reproductor y cargar la cola.'
                 });
             }
         } catch { /* ignore */ }
@@ -232,7 +232,7 @@ async function deserializeTrack(kazagumo, client, plain, fallbackUser) {
 
 /**
  * Si hay snapshot pendiente para el guild, agrega current + cola + previous y flags.
- * Solo llamar con un `player` ya existente (p. ej. tras `/play`).
+ * Solo llamar con un `player` ya existente (p. ej. tras `/reproducir`).
  * @param {import('kazagumo').Kazagumo} kazagumo
  * @param {import('discord.js').Client} client
  * @param {string} guildId

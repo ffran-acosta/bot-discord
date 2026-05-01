@@ -27,7 +27,7 @@ function buildQueueEmbed(player, page) {
         .setTitle('📋 Cola de reproducción')
         .setDescription(
             `**En reproducción:**\n[${current.title}](${current.uri ?? '#'})\n` +
-                `⏱️ ${current.length > 0 ? formatTime(current.length) : 'Live'} · 👤 ${current.requester ?? '—'}`
+                `⏱️ ${current.length > 0 ? formatTime(current.length) : 'En vivo'} · 👤 ${current.requester ?? '—'}`
         )
         .setThumbnail(current.thumbnail || null);
 
@@ -71,7 +71,7 @@ function buildQueueRows(page, maxPage) {
 
 export default {
     data: new SlashCommandBuilder()
-        .setName('queue')
+        .setName('cola')
         .setDescription('Muestra la cola de reproducción (10 por página)'),
 
     async execute(interaction, kazagumo) {

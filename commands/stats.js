@@ -3,7 +3,7 @@ import { formatBytes, formatUptime, getBotStats } from '../src/services/stats.js
 
 export default {
     data: new SlashCommandBuilder()
-        .setName('stats')
+        .setName('estadisticas')
         .setDescription('Estadísticas del bot (uptime, servidores, reproducciones, nodos, memoria)'),
 
     async execute(interaction, kazagumo) {
@@ -13,7 +13,7 @@ export default {
             .setColor(0x5865F2)
             .setTitle('📊 Estadísticas')
             .addFields(
-                { name: 'Uptime', value: formatUptime(s.uptimeMs), inline: true },
+                { name: 'Tiempo activo', value: formatUptime(s.uptimeMs), inline: true },
                 { name: 'Servidores', value: `${s.guilds}`, inline: true },
                 { name: 'Canciones reproducidas', value: `${s.songsPlayed}`, inline: true },
                 {

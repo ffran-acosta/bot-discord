@@ -1,6 +1,19 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { applyPendingRestoreIfAny } from '../src/services/queuePersistence.js';
 
+const MAX_PLAYLIST_TRACKS = 200;
+
+function isLikelySpotifyUrl(query) {
+    const q = query.trim();
+    return /^https?:\/\/(open\.)?spotify\.com\//i.test(q) || /spotify:(track|album|playlist|episode):/i.test(q);
+}
+
+function hasYoutubeListParameter(query) {
+    const q = query.trim();
+    if (!/^https?:\/\//i.test(q)) return false;
+    return /[?&]list=[^&\s#]+/i.test(q) || /youtube\.com\/playlist/i.test(q);
+}
+
 export default {
     data: new SlashCommandBuilder()
         .setName('play')
@@ -144,19 +157,49 @@ export default {
                 }
             }
 
-            // Search for the track
+            // Search for the track (same Lavalink node as the player when possible — better for playlists / encoded tracks)
+            const searchOpts = { requester: interaction.user };
+            if (player.shoukaku?.node?.name) {
+                searchOpts.nodeName = player.shoukaku.node.name;
+            }
+
             console.log(`   └─ Searching for: ${query}`);
-            const result = await kazagumo.search(query, {
-                requester: interaction.user
-            });
+            const result = await kazagumo.search(query, searchOpts);
 
             if (!result.tracks.length) {
                 console.log(`   └─ ❌ No results found`);
+                if (isLikelySpotifyUrl(query)) {
+                    return interaction.editReply(
+                        '❌ **Spotify:** este nodo de Lavalink no devolvió audio para esa URL. ' +
+                            'Hace falta un servidor con fuente tipo **LavaSrc / LavaSource** (u otro plugin que resuelva Spotify). ' +
+                            'Probá con un enlace de **YouTube** o una búsqueda por texto, o usá un Lavalink propio con el plugin instalado.'
+                    );
+                }
                 return interaction.editReply('❌ No results found for your search!');
             }
 
-            const isPlaylist = result.type === 'PLAYLIST';
-            const tracksToAdd = isPlaylist ? result.tracks : [result.tracks[0]];
+            let isPlaylist = result.type === 'PLAYLIST';
+            let tracksToAdd = isPlaylist ? [...result.tracks] : [result.tracks[0]];
+
+            if (
+                !isPlaylist &&
+                result.type === 'SEARCH' &&
+                result.tracks.length > 1 &&
+                hasYoutubeListParameter(query)
+            ) {
+                isPlaylist = true;
+                tracksToAdd = result.tracks.slice(0, MAX_PLAYLIST_TRACKS);
+                console.log(`   └─ YouTube list URL returned SEARCH; treating as playlist (${tracksToAdd.length} tracks, max ${MAX_PLAYLIST_TRACKS})`);
+            }
+
+            if (isPlaylist) {
+                tracksToAdd = tracksToAdd.slice(0, MAX_PLAYLIST_TRACKS);
+            }
+
+            if (isPlaylist && tracksToAdd.length === 0) {
+                return interaction.editReply('❌ La playlist no tiene pistas cargables (lista vacía o error del nodo).');
+            }
+
             const track = tracksToAdd[0];
             const queueLengthBefore = player.queue.length;
             const isCurrentlyPlaying = player.playing || player.paused;
@@ -190,9 +233,13 @@ export default {
                 .setTimestamp();
 
             if (isPlaylist) {
+                const plTitle = result.playlistName ?? (hasYoutubeListParameter(query) ? 'YouTube playlist' : 'Playlist');
                 embed.setTitle('📋 Playlist added')
-                    .setDescription(`**${result.playlistName ?? 'Playlist'}** — ${tracksToAdd.length} songs added to queue`)
+                    .setDescription(`**${plTitle}** — ${tracksToAdd.length} song(s) added to queue`)
                     .addFields({ name: '👤 Requested by', value: `${interaction.user}`, inline: true });
+                if (result.tracks.length > tracksToAdd.length) {
+                    embed.setFooter({ text: `Showing first ${tracksToAdd.length} tracks (limit ${MAX_PLAYLIST_TRACKS}).` });
+                }
             } else {
                 embed.setTitle('🎵 Song added')
                     .setDescription(`**[${track.title}](${track.uri})**`)
@@ -239,6 +286,12 @@ export default {
                 errorMessage = '❌ Too many requests. Please wait a moment and try again!';
             } else if (error.message?.includes('timeout') || error.message?.includes('handshake')) {
                 errorMessage = '❌ Connection timeout. Please try again!';
+            } else if (isLikelySpotifyUrl(query) && (
+                /spotify|lavalink|load|resolve|plugin|source/i.test(String(error.message))
+            )) {
+                errorMessage =
+                    '❌ **Spotify:** el nodo no pudo resolver esa URL (suele faltar **LavaSrc** u otra fuente Spotify en Lavalink). ' +
+                    'Usá YouTube o texto, o un nodo con el plugin configurado.';
             }
 
             await interaction.editReply(errorMessage);

@@ -1,4 +1,5 @@
 import { buildNowPlayingEmbed, buildPlayerButtons } from '../ui/playerEmbed.js';
+import { NOW_PLAYING_REFRESH_MS } from '../config/constants.js';
 import logger from '../utils/logger.js';
 
 /** @type {Map<string, { channelId: string, messageId: string, timer: ReturnType<typeof setInterval> | null }>} */
@@ -107,7 +108,7 @@ export async function syncNowPlayingPanel(client, kazagumo, player) {
 
     const timer = setInterval(() => {
         void runTick(client, kazagumo, guildId);
-    }, 15000);
+    }, NOW_PLAYING_REFRESH_MS);
 
     panelState.set(guildId, {
         channelId: msg.channel.id,

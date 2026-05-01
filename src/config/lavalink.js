@@ -1,6 +1,4 @@
-import { config } from 'dotenv';
-
-config();
+import logger from '../utils/logger.js';
 
 export async function fetchLavalinkNodes(maxNodes = 20) {
     const apis = [
@@ -31,11 +29,11 @@ export async function fetchLavalinkNodes(maxNodes = 20) {
                     secure: Boolean(n.secure || n.port === 443)
                 }));
             if (v4Nodes.length > 0) {
-                console.log(`📡 API (${apiUrl}) returned ${v4Nodes.length} v4 SSL nodes`);
+                logger.info(`API (${apiUrl}) devolvió ${v4Nodes.length} nodos v4 SSL`);
                 return v4Nodes;
             }
         } catch (error) {
-            console.warn(`⚠️ Could not fetch nodes from ${apiUrl}: ${error.message}`);
+            logger.warn(`No se pudo obtener nodos de ${apiUrl}`, { error: error.message });
         }
     }
     return [];

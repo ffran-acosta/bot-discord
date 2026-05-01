@@ -1,34 +1,26 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { requirePlayerInVoice } from '../src/middleware/guards.js';
 
 export default {
     data: new SlashCommandBuilder()
         .setName('resume')
-        .setDescription('Resumes playback'),
-    
+        .setDescription('Reanuda la reproducción'),
+
     async execute(interaction, kazagumo) {
-        const player = kazagumo.players.get(interaction.guild.id);
-
-        if (!player) {
-            return interaction.reply('❌ No song is currently playing!');
-        }
-
-        const member = interaction.member;
-        const voiceChannel = member.voice.channel;
-
-        if (!voiceChannel || player.voiceId !== voiceChannel.id) {
-            return interaction.reply('❌ You must be in the same voice channel as the bot!');
-        }
+        const guard = requirePlayerInVoice(interaction, kazagumo);
+        if (!guard) return;
+        const { player } = guard;
 
         if (!player.paused) {
-            return interaction.reply('❌ Playback is not paused!');
+            return interaction.reply('❌ La reproducción no está pausada.');
         }
 
         await player.pause(false);
 
         const embed = new EmbedBuilder()
             .setColor(0x57F287)
-            .setTitle('▶️ Playback resumed')
-            .setDescription(`Playing: **${player.queue.current?.title ?? 'Unknown'}**`)
+            .setTitle('▶️ Reanudado')
+            .setDescription(`Sonando: **${player.queue.current?.title ?? '—'}**`)
             .setTimestamp();
 
         await interaction.reply({ embeds: [embed] });

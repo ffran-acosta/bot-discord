@@ -1,34 +1,26 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { requirePlayerInVoice } from '../src/middleware/guards.js';
 
 export default {
     data: new SlashCommandBuilder()
         .setName('pause')
-        .setDescription('Pauses playback'),
-    
+        .setDescription('Pausa la reproducción'),
+
     async execute(interaction, kazagumo) {
-        const player = kazagumo.players.get(interaction.guild.id);
-
-        if (!player) {
-            return interaction.reply('❌ No song is currently playing!');
-        }
-
-        const member = interaction.member;
-        const voiceChannel = member.voice.channel;
-
-        if (!voiceChannel || player.voiceId !== voiceChannel.id) {
-            return interaction.reply('❌ You must be in the same voice channel as the bot!');
-        }
+        const guard = requirePlayerInVoice(interaction, kazagumo);
+        if (!guard) return;
+        const { player } = guard;
 
         if (player.paused) {
-            return interaction.reply('❌ Playback is already paused!');
+            return interaction.reply('❌ La reproducción ya está pausada.');
         }
 
         await player.pause(true);
 
         const embed = new EmbedBuilder()
             .setColor(0xFEE75C)
-            .setTitle('⏸️ Playback paused')
-            .setDescription(`Paused: **${player.queue.current?.title ?? 'Unknown'}**`)
+            .setTitle('⏸️ Pausado')
+            .setDescription(`Pausado: **${player.queue.current?.title ?? '—'}**`)
             .setTimestamp();
 
         await interaction.reply({ embeds: [embed] });

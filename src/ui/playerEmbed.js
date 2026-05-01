@@ -1,14 +1,13 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { formatTime } from '../utils/formatTime.js';
-
-const BAR_WIDTH = 14;
+import { PROGRESS_BAR_WIDTH } from '../config/constants.js';
 
 /**
  * @param {number} positionMs
  * @param {number} durationMs
- * @param {number} [width=BAR_WIDTH]
+ * @param {number} [width=PROGRESS_BAR_WIDTH]
  */
-export function buildProgressBar(positionMs, durationMs, width = BAR_WIDTH) {
+export function buildProgressBar(positionMs, durationMs, width = PROGRESS_BAR_WIDTH) {
     if (!durationMs || durationMs <= 0) {
         return `\`${'░'.repeat(width)}\` · LIVE`;
     }

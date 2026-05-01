@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { formatTime } from '../src/utils/formatTime.js';
+import { requirePlayerInVoice } from '../src/middleware/guards.js';
 
 function parseSeekInput(raw) {
     const s = raw.trim();
@@ -22,62 +23,53 @@ function parseSeekInput(raw) {
 export default {
     data: new SlashCommandBuilder()
         .setName('seek')
-        .setDescription('Seeks to a position in the current track (mm:ss or seconds)')
+        .setDescription('Salta a una posición en la pista actual (mm:ss o segundos)')
         .addStringOption(option =>
             option
                 .setName('time')
-                .setDescription('Time as seconds (e.g. 90) or mm:ss (e.g. 1:30)')
+                .setDescription('Tiempo en segundos (ej. 90) o mm:ss (ej. 1:30)')
                 .setRequired(true)
         ),
 
     async execute(interaction, kazagumo) {
-        const player = kazagumo.players.get(interaction.guild.id);
-
-        if (!player) {
-            return interaction.reply('❌ No song is currently playing!');
-        }
-
-        const member = interaction.member;
-        const voiceChannel = member.voice.channel;
-
-        if (!voiceChannel || player.voiceId !== voiceChannel.id) {
-            return interaction.reply('❌ You must be in the same voice channel as the bot!');
-        }
+        const guard = requirePlayerInVoice(interaction, kazagumo);
+        if (!guard) return;
+        const { player } = guard;
 
         const current = player.queue.current;
         if (!current) {
-            return interaction.reply('❌ No song is currently playing!');
+            return interaction.reply('❌ No hay ninguna canción en reproducción.');
         }
 
         if (!current.length) {
-            return interaction.reply('❌ Cannot seek in live streams or tracks without a fixed duration.');
+            return interaction.reply('❌ No se puede hacer seek en streams en vivo o pistas sin duración fija.');
         }
 
         if (!current.isSeekable) {
-            return interaction.reply('❌ This track cannot be seeked.');
+            return interaction.reply('❌ Esta pista no admite seek.');
         }
 
         const raw = interaction.options.getString('time', true);
         const positionMs = parseSeekInput(raw);
         if (positionMs === null || positionMs < 0) {
-            return interaction.reply('❌ Invalid time. Use seconds (e.g. `90`) or `mm:ss` / `h:mm:ss`.');
+            return interaction.reply('❌ Tiempo inválido. Usá segundos (ej. `90`) o `mm:ss` / `h:mm:ss`.');
         }
 
         const duration = current.length;
         if (positionMs > duration) {
-            return interaction.reply(`❌ Seek position exceeds track duration (${formatTime(duration)}).`);
+            return interaction.reply(`❌ La posición supera la duración del tema (${formatTime(duration)}).`);
         }
 
         try {
             await player.seek(positionMs);
         } catch (err) {
-            return interaction.reply(`❌ Seek failed: ${err.message || 'unknown error'}`);
+            return interaction.reply(`❌ Seek falló: ${err.message || 'error desconocido'}`);
         }
 
         const embed = new EmbedBuilder()
             .setColor(0x5865F2)
             .setTitle('⏩ Seek')
-            .setDescription(`Position: **${formatTime(positionMs)}** / ${formatTime(duration)}`)
+            .setDescription(`Posición: **${formatTime(positionMs)}** / ${formatTime(duration)}`)
             .setTimestamp();
 
         await interaction.reply({ embeds: [embed] });

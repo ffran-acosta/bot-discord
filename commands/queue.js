@@ -7,8 +7,7 @@ import {
     SlashCommandBuilder
 } from 'discord.js';
 import { formatTime } from '../src/utils/formatTime.js';
-
-const PAGE_SIZE = 10;
+import { QUEUE_COLLECTOR_TIMEOUT_MS, QUEUE_PAGE_SIZE } from '../src/config/constants.js';
 
 /**
  * @param {import('kazagumo').KazagumoPlayer} player
@@ -18,10 +17,10 @@ function buildQueueEmbed(player, page) {
     const queue = player.queue;
     const current = queue.current;
     const totalUpcoming = queue.length;
-    const maxPage = Math.max(0, Math.ceil(totalUpcoming / PAGE_SIZE) - 1);
+    const maxPage = Math.max(0, Math.ceil(totalUpcoming / QUEUE_PAGE_SIZE) - 1);
     const safePage = Math.min(Math.max(0, page), maxPage);
-    const start = safePage * PAGE_SIZE;
-    const slice = queue.slice(start, start + PAGE_SIZE);
+    const start = safePage * QUEUE_PAGE_SIZE;
+    const slice = queue.slice(start, start + QUEUE_PAGE_SIZE);
 
     const embed = new EmbedBuilder()
         .setColor(0x5865F2)
@@ -99,7 +98,7 @@ export default {
                 i.message.id === message.id &&
                 i.user.id === interaction.user.id &&
                 (i.customId === 'queue_prev' || i.customId === 'queue_next'),
-            time: 120_000
+            time: QUEUE_COLLECTOR_TIMEOUT_MS
         });
 
         collector.on('collect', async i => {

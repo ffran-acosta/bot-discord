@@ -34,7 +34,17 @@ export function startHealthcheckServer(client, kazagumo, port = Number(process.e
         });
     });
 
-    return app.listen(port, () => {
+    const server = app.listen(port, () => {
         logger.info(`Healthcheck HTTP escuchando en :${port}`);
     });
+
+    server.on('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+            logger.error(`Healthcheck: el puerto ${port} está en uso`, { error: err.message });
+        } else {
+            logger.error('Healthcheck: error del servidor HTTP', { error: err.message, code: err.code });
+        }
+    });
+
+    return server;
 }

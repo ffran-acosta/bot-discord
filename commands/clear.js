@@ -1,31 +1,27 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { requirePlayerInVoice } from '../src/middleware/guards.js';
 
 export default {
     data: new SlashCommandBuilder()
         .setName('clear')
-        .setDescription('Clears the music queue (current track keeps playing)'),
+        .setDescription('Vacía la cola (la pista actual sigue sonando)'),
 
     async execute(interaction, kazagumo) {
-        const player = kazagumo.players.get(interaction.guild.id);
-
-        if (!player) {
-            return interaction.reply('❌ No song is currently playing!');
-        }
-
-        const member = interaction.member;
-        const voiceChannel = member.voice.channel;
-
-        if (!voiceChannel || player.voiceId !== voiceChannel.id) {
-            return interaction.reply('❌ You must be in the same voice channel as the bot!');
-        }
+        const guard = requirePlayerInVoice(interaction, kazagumo);
+        if (!guard) return;
+        const { player } = guard;
 
         const removed = player.queue.length;
         player.queue.clear();
 
         const embed = new EmbedBuilder()
             .setColor(0xED4245)
-            .setTitle('🗑️ Queue cleared')
-            .setDescription(removed > 0 ? `Removed **${removed}** track(s) from the queue.` : 'The queue was already empty.')
+            .setTitle('🗑️ Cola vaciada')
+            .setDescription(
+                removed > 0
+                    ? `Se sacaron **${removed}** tema(s) de la cola.`
+                    : 'La cola ya estaba vacía.'
+            )
             .setTimestamp();
 
         await interaction.reply({ embeds: [embed] });

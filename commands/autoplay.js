@@ -1,55 +1,47 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { requirePlayerInVoice } from '../src/middleware/guards.js';
+import logger from '../src/utils/logger.js';
+import { setAutoplay, setAutoplayContext } from '../src/services/playerState.js';
 
 export default {
     data: new SlashCommandBuilder()
         .setName('autoplay')
-        .setDescription('Enables or disables automatic playback of related songs')
+        .setDescription('Activa o desactiva la reproducción automática de temas relacionados')
         .addStringOption(option =>
             option.setName('mode')
-                .setDescription('Enable or disable autoplay')
+                .setDescription('Activar o desactivar autoplay')
                 .setRequired(true)
                 .addChoices(
-                    { name: 'Enable', value: 'on' },
-                    { name: 'Disable', value: 'off' }
+                    { name: 'Activar', value: 'on' },
+                    { name: 'Desactivar', value: 'off' }
                 )),
-    
+
     async execute(interaction, kazagumo) {
-        const player = kazagumo.players.get(interaction.guild.id);
-
-        if (!player) {
-            return interaction.reply('❌ No music is currently playing! Use `/play` to start.');
-        }
-
-        const member = interaction.member;
-        const voiceChannel = member.voice.channel;
-
-        if (!voiceChannel || player.voiceId !== voiceChannel.id) {
-            return interaction.reply('❌ You must be in the same voice channel as the bot!');
-        }
+        const guard = requirePlayerInVoice(interaction, kazagumo);
+        if (!guard) return;
+        const { player } = guard;
 
         const mode = interaction.options.getString('mode');
         const isEnabled = mode === 'on';
-        
-        // Save autoplay state in the player
-        player._autoplay = isEnabled;
-        
-        // Set autoplay context to current track when enabling
+        const guildId = interaction.guild.id;
+
+        setAutoplay(guildId, isEnabled);
+
         if (isEnabled && player.queue.current) {
-            player._autoplayContext = player.queue.current;
-            console.log(`   └─ Autoplay context set to: ${player.queue.current.title}`);
+            setAutoplayContext(guildId, player.queue.current);
         }
 
         const embed = new EmbedBuilder()
             .setColor(isEnabled ? 0x57F287 : 0xED4245)
-            .setTitle(isEnabled ? '🔄 Autoplay enabled' : '⏹️ Autoplay disabled')
+            .setTitle(isEnabled ? '🔄 Autoplay activado' : '⏹️ Autoplay desactivado')
             .setDescription(
-                isEnabled 
-                    ? 'The bot will now automatically play related songs when the queue ends.\n\nUse `/play` to add songs manually or `/autoplay off` to disable.'
-                    : 'The bot will no longer automatically play songs when the queue ends.'
+                isEnabled
+                    ? 'El bot reproducirá temas relacionados cuando la cola termine.\n\nUsá `/play` para agregar música manualmente o `/autoplay` con Desactivar para apagar.'
+                    : 'El bot ya no elegirá temas solos al terminar la cola.'
             )
             .setTimestamp();
 
-        console.log(`🔄 Autoplay ${isEnabled ? 'enabled' : 'disabled'} | Guild: ${interaction.guild.id} | User: ${interaction.user.tag}`);
+        logger.info(`Autoplay ${isEnabled ? 'activado' : 'desactivado'}`, { guildId, user: interaction.user.tag });
 
         await interaction.reply({ embeds: [embed] });
     }

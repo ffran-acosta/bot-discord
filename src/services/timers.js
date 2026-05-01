@@ -1,20 +1,38 @@
-export const emptyChannelTimers = new Map();
+import logger from '../utils/logger.js';
+import { DISCONNECT_TIMEOUT_MS, EMPTY_CHANNEL_TIMEOUT_MS } from '../config/constants.js';
+
+const inactiveTimers = new Map();
+const emptyChannelTimers = new Map();
 
 export function scheduleDisconnect(player, kazagumo) {
-    if (emptyChannelTimers.has(player.guildId)) return;
-    setTimeout(async () => {
+    const guildId = player.guildId;
+    if (inactiveTimers.has(guildId)) return;
+
+    const timer = setTimeout(async () => {
+        inactiveTimers.delete(guildId);
         try {
-            const p = kazagumo.players.get(player.guildId);
+            const p = kazagumo.players.get(guildId);
             if (p && !p.playing && p.queue.length === 0) await p.destroy();
         } catch (err) {
-            console.error('Error destroying inactive player:', err);
+            logger.error('Error destruyendo player inactivo', { guildId, error: err.message });
         }
-    }, 3600000);
+    }, DISCONNECT_TIMEOUT_MS);
+
+    inactiveTimers.set(guildId, timer);
+}
+
+export function cancelDisconnect(guildId) {
+    const timer = inactiveTimers.get(guildId);
+    if (timer) {
+        clearTimeout(timer);
+        inactiveTimers.delete(guildId);
+    }
 }
 
 export function scheduleEmptyChannelDisconnect(guildId, kazagumo) {
     if (emptyChannelTimers.has(guildId)) return;
-    console.log(`🔇 Voice channel empty in guild ${guildId}, disconnecting in 1 hour`);
+    logger.info('Canal de voz vacío, desconexión programada', { guildId });
+
     const timer = setTimeout(async () => {
         emptyChannelTimers.delete(guildId);
         const player = kazagumo.players.get(guildId);
@@ -22,11 +40,12 @@ export function scheduleEmptyChannelDisconnect(guildId, kazagumo) {
         try {
             player.queue.clear();
             await player.destroy();
-            console.log(`🔇 Disconnected from empty channel in guild ${guildId} after 1 hour`);
+            logger.info('Desconectado de canal vacío tras timeout', { guildId });
         } catch (err) {
-            console.error('Error disconnecting from empty channel:', err);
+            logger.error('Error desconectando de canal vacío', { guildId, error: err.message });
         }
-    }, 3600000);
+    }, EMPTY_CHANNEL_TIMEOUT_MS);
+
     emptyChannelTimers.set(guildId, timer);
 }
 
@@ -35,6 +54,6 @@ export function cancelEmptyChannelDisconnect(guildId) {
     if (timer) {
         clearTimeout(timer);
         emptyChannelTimers.delete(guildId);
-        console.log(`✅ Someone joined in guild ${guildId}, cancelled empty-channel timer`);
+        logger.debug('Timer de canal vacío cancelado', { guildId });
     }
 }

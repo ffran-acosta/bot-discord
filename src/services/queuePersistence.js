@@ -4,6 +4,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { KazagumoTrack } from 'kazagumo';
 import logger from '../utils/logger.js';
+import { peekPlayerState, setAutoplay, setAutoplayContext, setLoopMode } from './playerState.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const dataDir = join(__dirname, '..', '..', 'data');
@@ -45,7 +46,9 @@ export async function saveQueues(kazagumo) {
         const current = trackToPlain(player.queue.current);
         const queue = player.queue.map(t => trackToPlain(t)).filter(Boolean);
         const previous = (player.queue.previous || []).map(t => trackToPlain(t)).filter(Boolean);
-        const ctx = player._autoplayContext ? trackToPlain(player._autoplayContext) : null;
+        const s = peekPlayerState(player.guildId);
+        const ctxTrack = s?.autoplayContext ?? null;
+        const ctx = ctxTrack ? trackToPlain(ctxTrack) : null;
 
         if (!current && queue.length === 0 && previous.length === 0) continue;
 
@@ -55,8 +58,8 @@ export async function saveQueues(kazagumo) {
             current,
             queue,
             previous,
-            _loopMode: player._loopMode ?? 'off',
-            _autoplay: Boolean(player._autoplay),
+            _loopMode: s?.loopMode ?? 'off',
+            _autoplay: Boolean(s?.autoplay),
             _autoplayContext: ctx
         };
     }
@@ -176,12 +179,12 @@ export async function applyPendingRestoreIfAny(kazagumo, client, guildId, reques
             player.queue.previous = prev;
         }
 
-        player._loopMode = pending._loopMode ?? 'off';
+        setLoopMode(guildId, pending._loopMode ?? 'off');
         player.setLoop('none');
-        player._autoplay = pending._autoplay;
+        setAutoplay(guildId, pending._autoplay);
         if (pending._autoplay && pending._autoplayContext) {
             const c = await deserializeTrack(kazagumo, client, pending._autoplayContext, requesterUser);
-            if (c) player._autoplayContext = c;
+            if (c) setAutoplayContext(guildId, c);
         }
 
         logger.info('Cola restaurada correctamente', { guildId, tracks: toAdd.length });

@@ -1,20 +1,25 @@
 import { EmbedBuilder } from 'discord.js';
 import { formatTime } from '../utils/formatTime.js';
+import logger from '../utils/logger.js';
+import {
+    getAutoplayContext,
+    getAutoplayHistory,
+    pushAutoplayHistory,
+    setAutoplayContext
+} from './playerState.js';
+import { cancelDisconnect } from './timers.js';
+import { AUTOPLAY_DELAY_MS } from '../config/constants.js';
 
 export async function searchAndPlayRelatedSong(player, kazagumo, client, guild) {
-    const contextTrack = player._autoplayContext || player.queue.current;
+    const guildId = player.guildId;
+    const contextTrack = getAutoplayContext(guildId) || player.queue.current;
 
     if (!contextTrack) {
-        console.warn(`   └─ ⚠️ No context track available for autoplay`);
+        logger.warn('No context track available for autoplay', { guildId });
         return false;
     }
 
-    if (!player._autoplayHistory) {
-        player._autoplayHistory = [];
-    }
-
-    console.log(`   └─ 🔄 Autoplay enabled, searching for related songs...`);
-    console.log(`   └─ Using context: ${contextTrack.title}`);
+    logger.info('Autoplay: buscando canciones relacionadas', { guildId, context: contextTrack.title });
 
     try {
         let searchQuery = contextTrack.title;
@@ -23,16 +28,18 @@ export async function searchAndPlayRelatedSong(player, kazagumo, client, guild) 
         if (artistMatch) {
             const artistName = artistMatch[1].trim();
             searchQuery = artistName;
-            console.log(`   └─ Extracted artist: ${artistName}`);
+            logger.debug(`Autoplay: artista extraído: ${artistName}`, { guildId });
         } else {
             searchQuery = `radio ${contextTrack.title}`;
         }
 
-        console.log(`   └─ Searching: ${searchQuery}`);
+        logger.debug(`Autoplay: buscando "${searchQuery}"`, { guildId });
 
         const result = await kazagumo.search(searchQuery, {
             requester: client.user
         });
+
+        const history = getAutoplayHistory(guildId);
 
         if (result.tracks && result.tracks.length > 0) {
             const relatedTracks = result.tracks.filter(track => {
@@ -60,7 +67,7 @@ export async function searchAndPlayRelatedSong(player, kazagumo, client, guild) 
                     return false;
                 }
 
-                const inHistory = player._autoplayHistory.some(historyTrack => {
+                const inHistory = history.some(historyTrack => {
                     if (historyTrack.uri === track.uri) return true;
                     const historyTitleLower = historyTrack.title.toLowerCase();
                     const trackWords = trackTitleLower.split(/\s+/).filter(w => w.length > 3);
@@ -75,61 +82,57 @@ export async function searchAndPlayRelatedSong(player, kazagumo, client, guild) 
 
             if (relatedTracks.length > 0) {
                 const relatedTrack = relatedTracks[0];
-                console.log(`   └─ ✅ Found related song: ${relatedTrack.title}`);
+                logger.info(`Autoplay: canción encontrada: ${relatedTrack.title}`, { guildId });
 
-                player._autoplayHistory.push(relatedTrack);
-                if (player._autoplayHistory.length > 10) {
-                    player._autoplayHistory.shift();
-                }
-
-                player._autoplayContext = relatedTrack;
+                pushAutoplayHistory(guildId, relatedTrack);
+                setAutoplayContext(guildId, relatedTrack);
 
                 const wasQueueEmpty = player.queue.length === 0;
 
                 await player.queue.add(relatedTrack);
+                cancelDisconnect(guildId);
 
                 if (wasQueueEmpty && player.queue.current) {
                     await player.skip();
-                    await new Promise(resolve => setTimeout(resolve, 300));
+                    await new Promise(resolve => setTimeout(resolve, AUTOPLAY_DELAY_MS));
                 }
 
                 if (!player.playing) {
                     await player.play();
-                    await new Promise(resolve => setTimeout(resolve, 300));
+                    await new Promise(resolve => setTimeout(resolve, AUTOPLAY_DELAY_MS));
                 }
 
                 if (player.textId) {
-                    const channel = guild.channels.cache.get(player.textId);
-                    if (channel) {
+                    const channel =
+                        guild.channels.cache.get(player.textId) ||
+                        await guild.channels.fetch(player.textId).catch(() => null);
+                    if (channel?.isTextBased?.()) {
                         const embed = new EmbedBuilder()
                             .setColor(0x5865F2)
                             .setTitle('🔄 Autoplay')
-                            .setDescription(`**Playing related song:**\n[${relatedTrack.title}](${relatedTrack.uri})`)
+                            .setDescription(`**Reproduciendo tema relacionado:**\n[${relatedTrack.title}](${relatedTrack.uri})`)
                             .addFields(
-                                { name: '⏱️ Duration', value: relatedTrack.length > 0 ? formatTime(relatedTrack.length) : 'Live', inline: true }
+                                { name: '⏱️ Duración', value: relatedTrack.length > 0 ? formatTime(relatedTrack.length) : 'En vivo', inline: true }
                             )
                             .setThumbnail(relatedTrack.thumbnail || null)
                             .setTimestamp();
 
                         try {
                             await channel.send({ embeds: [embed] });
-                            console.log(`   └─ ✅ Autoplay: Playing ${relatedTrack.title}`);
                         } catch (error) {
-                            console.error('Error sending autoplay notification:', error);
+                            logger.error('Error enviando notificación de autoplay', { guildId, error: error.message });
                         }
                     }
                 }
                 return true;
-            } else {
-                console.warn(`   └─ ⚠️ No different related songs found`);
-                return false;
             }
-        } else {
-            console.warn(`   └─ ⚠️ No related songs found`);
+            logger.warn('Autoplay: no se encontraron canciones distintas', { guildId });
             return false;
         }
+        logger.warn('Autoplay: sin resultados de búsqueda', { guildId });
+        return false;
     } catch (autoplayError) {
-        console.error('Error in autoplay search:', autoplayError);
+        logger.error('Error en búsqueda de autoplay', { guildId, error: autoplayError.message });
         return false;
     }
 }

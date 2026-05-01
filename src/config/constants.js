@@ -1,0 +1,14 @@
+export const DISCONNECT_TIMEOUT_MS = 3_600_000;
+export const EMPTY_CHANNEL_TIMEOUT_MS = 3_600_000;
+export const NOW_PLAYING_REFRESH_MS = 15_000;
+export const QUEUE_PAGE_SIZE = 10;
+export const QUEUE_COLLECTOR_TIMEOUT_MS = 120_000;
+export const MAX_PLAYLIST_TRACKS = 200;
+export const AUTOPLAY_HISTORY_SIZE = 10;
+export const PROGRESS_BAR_WIDTH = 14;
+
+export const RETRY_DELAY_MS = 800;
+export const PLAY_START_DELAY_MS = 400;
+export const AUTOPLAY_DELAY_MS = 300;
+export const BOT_KICK_GRACE_MS = 3_000;
+export const NODE_RETRY_DELAY_MS = 500;

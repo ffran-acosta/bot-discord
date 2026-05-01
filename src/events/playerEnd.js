@@ -2,6 +2,8 @@ import { searchAndPlayRelatedSong } from '../services/autoplay.js';
 import { incrementSongsPlayed } from '../services/stats.js';
 import { scheduleDisconnect } from '../services/timers.js';
 import { stopNowPlayingUpdates, syncNowPlayingPanel } from '../services/nowPlayingMessage.js';
+import { getLoopMode, isAutoplay, setAutoplay } from '../services/playerState.js';
+import { PLAY_START_DELAY_MS } from '../config/constants.js';
 import logger from '../utils/logger.js';
 
 export default function registerPlayerEndEvent(kazagumo, client) {
@@ -15,7 +17,8 @@ export default function registerPlayerEndEvent(kazagumo, client) {
                 return;
             }
 
-            const mode = player._loopMode ?? 'off';
+            const guildId = player.guildId;
+            const mode = getLoopMode(guildId);
             const endedTrack = player.queue.current;
             let queueLength = player.queue.length;
 
@@ -27,20 +30,20 @@ export default function registerPlayerEndEvent(kazagumo, client) {
             }
             queueLength = player.queue.length;
 
-            logger.info('Pista finalizada', { guildId: player.guildId, track: endedTrack?.title, queueRemaining: queueLength });
+            logger.info('Pista finalizada', { guildId, track: endedTrack?.title, queueRemaining: queueLength });
 
             if (queueLength > 0) {
-                await new Promise(resolve => setTimeout(resolve, 400));
+                await new Promise(resolve => setTimeout(resolve, PLAY_START_DELAY_MS));
                 if (player.queue.current && player.textId) {
                     await syncNowPlayingPanel(client, kazagumo, player).catch(err =>
                         logger.error('Error sincronizando panel now-playing', { error: err.message })
                     );
                 }
             } else {
-                if (player._autoplay) {
+                if (isAutoplay(guildId)) {
                     const success = await searchAndPlayRelatedSong(player, kazagumo, client, guild);
                     if (!success) {
-                        player._autoplay = false;
+                        setAutoplay(guildId, false);
                         scheduleDisconnect(player, kazagumo);
                         await stopNowPlayingUpdates(client, player.guildId);
                     } else {

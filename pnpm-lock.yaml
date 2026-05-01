@@ -26,9 +26,6 @@ importers:
       winston:
         specifier: ^3.19.0
         version: 3.19.0
-      ws:
-        specifier: ^8.19.0
-        version: 8.20.0
 
 packages:
 

@@ -1,10 +1,7 @@
-import { config } from 'dotenv';
 import { mkdirSync } from 'fs';
 import { createLogger, format, transports } from 'winston';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-
-config();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const logsDir = join(__dirname, '..', '..', 'logs');

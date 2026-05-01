@@ -1,0 +1,31 @@
+{
+  "name": "bot-music-discord",
+  "version": "1.0.0",
+  "description": "Bot de música para Discord usando Kazagumo, Shoukaku y Lavalink",
+  "main": "index.js",
+  "type": "module",
+  "packageManager": "pnpm@10.4.1",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "deploy": "node deploy-commands.js",
+    "setup": "node setup.js"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "music",
+    "kazagumo",
+    "shoukaku",
+    "lavalink"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.3.1",
+    "kazagumo": "^3.4.3",
+    "shoukaku": "^4.3.0",
+    "ws": "^8.19.0"
+  }
+}

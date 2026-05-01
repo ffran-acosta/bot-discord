@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+# Note: .env.example is NOT ignored (it's a template for the repository)
+.env
+.env.local
+.env.*.local
+
+# Explicitly include .env.example (override any patterns that might ignore it)
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Operating system
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.temp
+
+# Claude Code memory/session data
+.claude/
+
+# Old env file (without dot)
+env

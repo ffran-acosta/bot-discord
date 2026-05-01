@@ -12,3 +12,4 @@ export const PLAY_START_DELAY_MS = 400;
 export const AUTOPLAY_DELAY_MS = 300;
 export const BOT_KICK_GRACE_MS = 3_000;
 export const NODE_RETRY_DELAY_MS = 500;
+export const PREVIOUS_RESTART_THRESHOLD_MS = 3_000;

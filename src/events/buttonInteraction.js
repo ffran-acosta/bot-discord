@@ -1,4 +1,5 @@
 import { syncNowPlayingPanel, stopNowPlayingUpdates } from '../services/nowPlayingMessage.js';
+import { PREVIOUS_RESTART_THRESHOLD_MS } from '../config/constants.js';
 import logger from '../utils/logger.js';
 
 /**
@@ -41,6 +42,24 @@ export async function tryHandlePlayerButtons(interaction, kazagumo, client) {
             case 'togglepause': {
                 if (!player.queue.current) break;
                 await player.pause(!player.paused);
+                break;
+            }
+            case 'previous': {
+                const cur = player.queue.current;
+                if (!cur) break;
+                const pos = player.position ?? 0;
+                if (
+                    cur.isSeekable &&
+                    cur.length > 0 &&
+                    (pos >= PREVIOUS_RESTART_THRESHOLD_MS ||
+                        player.paused)
+                ) {
+                    await player.seek(0).catch(() => {});
+                    break;
+                }
+                const prev = player.getPrevious(true);
+                if (!prev) break;
+                await player.play(prev, { replaceCurrent: true }).catch(() => {});
                 break;
             }
             case 'skip': {

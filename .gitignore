@@ -10,6 +10,9 @@ node_modules/
 # Explicitly include .env.example (override any patterns that might ignore it)
 !.env.example
 
+# Persisted runtime data
+data/
+
 # Logs
 *.log
 npm-debug.log*

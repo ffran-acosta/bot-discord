@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { applyPendingRestoreIfAny } from '../src/services/queuePersistence.js';
 
 export default {
     data: new SlashCommandBuilder()
@@ -171,6 +172,8 @@ export default {
             for (const t of tracksToAdd) {
                 await player.queue.add(t);
             }
+
+            await applyPendingRestoreIfAny(kazagumo, interaction.client, interaction.guild.id, interaction.user);
 
             // Update autoplay context when a song is manually added
             if (player._autoplay) {

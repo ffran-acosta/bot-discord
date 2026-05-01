@@ -11,6 +11,7 @@ import registerPlayerExceptionEvent from './src/events/playerException.js';
 import registerPlayerDestroyEvent from './src/events/playerDestroy.js';
 import registerVoiceStateUpdateEvent from './src/events/voiceStateUpdate.js';
 import registerShoukakuEvents from './src/events/shoukaku.js';
+import { saveQueues, restoreQueues } from './src/services/queuePersistence.js';
 
 config();
 
@@ -87,8 +88,9 @@ client.once('ready', () => {
     console.log(`📊 Servers: ${client.guilds.cache.size}`);
 });
 
-client.once('clientReady', () => {
+client.once('clientReady', async () => {
     console.log(`✅ Client fully ready!`);
+    await restoreQueues(kazagumo, client);
 });
 
 client.on('interactionCreate', async interaction => {
@@ -127,16 +129,26 @@ process.on('uncaughtException', (error) => {
     }
 });
 
-process.on('SIGINT', () => {
+let shuttingDown = false;
+async function gracefulShutdown() {
+    if (shuttingDown) return;
+    shuttingDown = true;
     console.log('\n🛑 Closing bot...');
+    try {
+        await saveQueues(kazagumo);
+    } catch (err) {
+        console.error('Error saving queues:', err);
+    }
     client.destroy();
     process.exit(0);
+}
+
+process.on('SIGINT', () => {
+    void gracefulShutdown();
 });
 
 process.on('SIGTERM', () => {
-    console.log('\n🛑 Closing bot...');
-    client.destroy();
-    process.exit(0);
+    void gracefulShutdown();
 });
 
 if (!process.env.DISCORD_TOKEN) {

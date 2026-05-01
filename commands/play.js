@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { applyPendingRestoreIfAny } from '../src/services/queuePersistence.js';
+import { syncNowPlayingPanel } from '../src/services/nowPlayingMessage.js';
 import {
     MAX_PLAYLIST_TRACKS,
     formatTrackDuration,
@@ -256,6 +257,7 @@ export default {
             }
 
             await interaction.editReply({ embeds: [embed] });
+            await syncNowPlayingPanel(interaction.client, kazagumo, player).catch(() => {});
         } catch (error) {
             console.error('Error in play:', error);
 

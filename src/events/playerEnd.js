@@ -1,7 +1,6 @@
-import { EmbedBuilder } from 'discord.js';
 import { searchAndPlayRelatedSong } from '../services/autoplay.js';
 import { scheduleDisconnect } from '../services/timers.js';
-import { formatTime } from '../utils/formatTime.js';
+import { stopNowPlayingUpdates, syncNowPlayingPanel } from '../services/nowPlayingMessage.js';
 
 export default function registerPlayerEndEvent(kazagumo, client) {
     kazagumo.on('playerEnd', async (player) => {
@@ -30,22 +29,10 @@ export default function registerPlayerEndEvent(kazagumo, client) {
 
             if (queueLength > 0) {
                 await new Promise(resolve => setTimeout(resolve, 400));
-                const nextTrack = player.queue.current;
-                if (nextTrack && player.textId) {
-                    const channel = guild.channels.cache.get(player.textId);
-                    if (channel) {
-                        const embed = new EmbedBuilder()
-                            .setColor(0x5865F2)
-                            .setTitle('🎵 Now playing')
-                            .setDescription(`**[${nextTrack.title}](${nextTrack.uri})**`)
-                            .addFields(
-                                { name: '👤 Requested by', value: `${nextTrack.requester}`, inline: true },
-                                { name: '⏱️ Duration', value: nextTrack.length > 0 ? formatTime(nextTrack.length) : 'Live', inline: true }
-                            )
-                            .setThumbnail(nextTrack.thumbnail || null)
-                            .setTimestamp();
-                        await channel.send({ embeds: [embed] }).catch(err => console.error('Error sending now playing:', err));
-                    }
+                if (player.queue.current && player.textId) {
+                    await syncNowPlayingPanel(client, kazagumo, player).catch(err =>
+                        console.error('Error syncing now playing:', err)
+                    );
                 }
             } else {
                 if (player._autoplay) {
@@ -53,9 +40,15 @@ export default function registerPlayerEndEvent(kazagumo, client) {
                     if (!success) {
                         player._autoplay = false;
                         scheduleDisconnect(player, kazagumo);
+                        await stopNowPlayingUpdates(client, player.guildId);
+                    } else {
+                        await syncNowPlayingPanel(client, kazagumo, player).catch(err =>
+                            console.error('Error syncing now playing:', err)
+                        );
                     }
                 } else {
                     scheduleDisconnect(player, kazagumo);
+                    await stopNowPlayingUpdates(client, player.guildId);
                 }
             }
         } catch (error) {

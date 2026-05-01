@@ -11,6 +11,7 @@ import registerPlayerExceptionEvent from './src/events/playerException.js';
 import registerPlayerDestroyEvent from './src/events/playerDestroy.js';
 import registerVoiceStateUpdateEvent from './src/events/voiceStateUpdate.js';
 import registerShoukakuEvents from './src/events/shoukaku.js';
+import { tryHandlePlayerButtons } from './src/events/buttonInteraction.js';
 import { saveQueues, restoreQueues } from './src/services/queuePersistence.js';
 
 config();
@@ -80,7 +81,7 @@ for (const file of commandFiles) {
 registerShoukakuEvents(shoukaku);
 registerPlayerEndEvent(kazagumo, client);
 registerPlayerExceptionEvent(kazagumo);
-registerPlayerDestroyEvent(kazagumo);
+registerPlayerDestroyEvent(kazagumo, client);
 registerVoiceStateUpdateEvent(client, kazagumo);
 
 client.once('ready', () => {
@@ -94,6 +95,8 @@ client.once('clientReady', async () => {
 });
 
 client.on('interactionCreate', async interaction => {
+    if (await tryHandlePlayerButtons(interaction, kazagumo, client)) return;
+
     if (!interaction.isChatInputCommand()) return;
 
     const command = client.commands.get(interaction.commandName);

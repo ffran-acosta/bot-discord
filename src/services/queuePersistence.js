@@ -202,19 +202,6 @@ export async function restoreQueues(kazagumo, client) {
                 });
             }
         }
-
-        const textId = entry.textId;
-        if (!textId) continue;
-
-        try {
-            const ch = await guild.channels.fetch(textId).catch(() => null);
-            if (ch && ch.isTextBased()) {
-                await ch.send({
-                    content:
-                        '📂 **Cola guardada** de la sesión anterior. Si no se restauró automáticamente, usá **`/play`** (nombre o URL en la opción **song**) para reactivar el reproductor y cargar la cola.'
-                });
-            }
-        } catch { /* ignore */ }
     }
 }
 

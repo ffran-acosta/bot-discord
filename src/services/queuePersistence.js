@@ -4,6 +4,12 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { KazagumoTrack } from 'kazagumo';
 import logger from '../utils/logger.js';
+import {
+    LAVALINK_RESTORE_POLL_MS,
+    LAVALINK_RESTORE_WAIT_MS,
+    NODE_RETRY_DELAY_MS
+} from '../config/constants.js';
+import { destroyStalePlayer } from '../utils/playerUtils.js';
 import { peekPlayerState, setAutoplay, setAutoplayContext, setLoopMode } from './playerState.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -45,7 +51,59 @@ async function hydratePlayerFromPending(kazagumo, client, guildId, pending, requ
         if (c) setAutoplayContext(guildId, c);
     }
 
-    return { ok: true, tracks: toAdd.length, player };
+    const hasTracks = toAdd.length > 0;
+    return { ok: hasTracks, tracks: toAdd.length, player };
+}
+
+/**
+ * @param {import('kazagumo').Kazagumo} kazagumo
+ */
+function getConnectedLavalinkNodes(kazagumo) {
+    return [...kazagumo.shoukaku.nodes.values()].filter(n => n.state === 1);
+}
+
+/**
+ * @param {import('kazagumo').Kazagumo} kazagumo
+ */
+async function waitForConnectedLavalinkNodes(kazagumo) {
+    const deadline = Date.now() + LAVALINK_RESTORE_WAIT_MS;
+    while (Date.now() < deadline) {
+        const nodes = getConnectedLavalinkNodes(kazagumo);
+        if (nodes.length > 0) return nodes;
+        await new Promise(r => setTimeout(r, LAVALINK_RESTORE_POLL_MS));
+    }
+    return [];
+}
+
+/**
+ * @param {import('kazagumo').Kazagumo} kazagumo
+ * @param {string} guildId
+ * @param {string} voiceId
+ * @param {string | null} textId
+ * @param {import('shoukaku').Node[]} nodes
+ */
+async function createRestoredPlayer(kazagumo, guildId, voiceId, textId, nodes) {
+    for (const node of nodes) {
+        try {
+            /** @type {{ guildId: string, voiceId: string, deaf: boolean, nodeName: string, textId?: string }} */
+            const opts = {
+                guildId,
+                voiceId,
+                deaf: true,
+                nodeName: node.name
+            };
+            if (textId) opts.textId = textId;
+            return await kazagumo.createPlayer(opts);
+        } catch (err) {
+            logger.warn(`Rejoin automático: falló createPlayer en nodo ${node.name}`, {
+                guildId,
+                error: err.message
+            });
+            await destroyStalePlayer(kazagumo, guildId);
+            await new Promise(r => setTimeout(r, NODE_RETRY_DELAY_MS));
+        }
+    }
+    return null;
 }
 
 function trackToPlain(track) {
@@ -133,7 +191,22 @@ export async function restoreQueues(kazagumo, client) {
 
     if (!data || data.version !== 1 || !data.guilds || typeof data.guilds !== 'object') return;
 
-    for (const [guildId, entry] of Object.entries(data.guilds)) {
+    const guildEntries = Object.entries(data.guilds);
+    const wantsAutoRejoin = guildEntries.some(([guildId, entry]) => {
+        if (!entry || (!entry.current && !(entry.queue?.length) && !(entry.previous?.length))) return false;
+        if (!entry._wasPlaying || !entry.voiceId) return false;
+        return Boolean(client.guilds.cache.get(guildId));
+    });
+
+    let rejoinNodes = [];
+    if (wantsAutoRejoin) {
+        rejoinNodes = await waitForConnectedLavalinkNodes(kazagumo);
+        if (rejoinNodes.length === 0) {
+            logger.warn('Restore: Lavalink sin nodos listos tras esperar; rejoin automático deshabilitado para esta sesión');
+        }
+    }
+
+    for (const [guildId, entry] of guildEntries) {
         const guild = client.guilds.cache.get(guildId);
         if (!guild) continue;
         if (!entry || (!entry.current && !(entry.queue?.length) && !(entry.previous?.length))) continue;
@@ -153,7 +226,7 @@ export async function restoreQueues(kazagumo, client) {
 
         logger.info('Cola pendiente cargada para restauración', { guildId });
 
-        if (entry._wasPlaying && entry.voiceId) {
+        if (entry._wasPlaying && entry.voiceId && rejoinNodes.length > 0) {
             try {
                 const voice = await guild.channels.fetch(entry.voiceId).catch(() => null);
                 const hasHumans = Boolean(voice?.isVoiceBased?.() && voice.members?.some(m => !m.user.bot));
@@ -161,39 +234,46 @@ export async function restoreQueues(kazagumo, client) {
                 if (!voice?.isVoiceBased?.()) {
                     logger.warn('No se pudo hacer rejoin automático: canal de voz no disponible', { guildId, voiceId: entry.voiceId });
                 } else {
-                    const createOptions = {
-                        guildId,
-                        voiceId: entry.voiceId,
-                        deaf: true
-                    };
-                    if (entry.textId) createOptions.textId = entry.textId;
-
-                    const player = await kazagumo.createPlayer(createOptions);
-
-                    const hydrated = await hydratePlayerFromPending(
+                    const player = await createRestoredPlayer(
                         kazagumo,
-                        client,
                         guildId,
-                        pendingByGuild.get(guildId),
-                        client.user
+                        entry.voiceId,
+                        entry.textId ?? null,
+                        rejoinNodes
                     );
 
-                    if (hydrated.ok && hydrated.player?.queue.current) {
-                        await hydrated.player.play();
-                        if (entry._positionMs > 0) {
-                            await hydrated.player.seek(entry._positionMs).catch(() => {});
-                        }
-                        pendingByGuild.delete(guildId);
-                        logger.info('Rejoin automático aplicado tras restart', {
+                    if (!player) {
+                        logger.warn('Rejoin automático: createPlayer falló en todos los nodos', { guildId });
+                    } else {
+                        const hydrated = await hydratePlayerFromPending(
+                            kazagumo,
+                            client,
                             guildId,
-                            voiceId: entry.voiceId,
-                            hadHumansAtRestore: hasHumans,
-                            resumedAtMs: entry._positionMs
-                        });
-                        continue;
-                    }
+                            pendingByGuild.get(guildId),
+                            client.user
+                        );
 
-                    await player.destroy().catch(() => {});
+                        const q = hydrated.player?.queue;
+                        const canPlay =
+                            hydrated.ok && q && (q.current || q.length > 0);
+
+                        if (canPlay) {
+                            await hydrated.player.play();
+                            if (entry._positionMs > 0) {
+                                await hydrated.player.seek(entry._positionMs).catch(() => {});
+                            }
+                            pendingByGuild.delete(guildId);
+                            logger.info('Rejoin automático aplicado tras restart', {
+                                guildId,
+                                voiceId: entry.voiceId,
+                                hadHumansAtRestore: hasHumans,
+                                resumedAtMs: entry._positionMs
+                            });
+                            continue;
+                        }
+
+                        await player.destroy().catch(() => {});
+                    }
                 }
             } catch (err) {
                 logger.warn('No se pudo aplicar rejoin automático tras restart', {

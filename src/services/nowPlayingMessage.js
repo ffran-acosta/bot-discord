@@ -2,6 +2,10 @@ import { buildNowPlayingEmbed, buildPlayerButtons } from '../ui/playerEmbed.js';
 import { NOW_PLAYING_REFRESH_MS } from '../config/constants.js';
 import logger from '../utils/logger.js';
 
+/** Panel now-playing: texto al cerrar el mensaje según motivo */
+const PANEL_SESSION_ENDED = '⏹️ Sesión finalizada.';
+const PANEL_TRACKLIST_FINISHED = '📋 Tracklist finalizado.';
+
 /** @type {Map<string, { channelId: string, messageId: string, timer: ReturnType<typeof setInterval> | null }>} */
 const panelState = new Map();
 
@@ -16,19 +20,22 @@ function clearTimer(guildId) {
 /**
  * @param {import('discord.js').Client} client
  * @param {string} guildId
+ * @param {'session' | 'tracklist'} [panelEndReason='session'] session = bot sale / corte; tracklist = cola reproducida hasta el final
  */
-export async function stopNowPlayingUpdates(client, guildId) {
+export async function stopNowPlayingUpdates(client, guildId, panelEndReason = 'session') {
     const s = panelState.get(guildId);
     if (!s) return;
     clearTimer(guildId);
     panelState.delete(guildId);
 
     if (!client) return;
+    const content =
+        panelEndReason === 'tracklist' ? PANEL_TRACKLIST_FINISHED : PANEL_SESSION_ENDED;
     try {
         const ch = await client.channels.fetch(s.channelId).catch(() => null);
         const msg = await ch?.messages.fetch(s.messageId).catch(() => null);
         if (msg?.editable) {
-            await msg.edit({ content: '⏹️ Sesión finalizada.', embeds: [], components: [] });
+            await msg.edit({ content, embeds: [], components: [] });
         }
     } catch { /* ignore */ }
 }

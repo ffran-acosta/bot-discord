@@ -45,7 +45,7 @@ export default function registerPlayerEndEvent(kazagumo, client) {
                     if (!success) {
                         setAutoplay(guildId, false);
                         scheduleDisconnect(player, kazagumo);
-                        await stopNowPlayingUpdates(client, player.guildId);
+                        await stopNowPlayingUpdates(client, player.guildId, 'tracklist');
                     } else {
                         await syncNowPlayingPanel(client, kazagumo, player).catch(err =>
                             logger.error('Error sincronizando panel de reproducción (auto-reproducir)', { error: err.message })
@@ -53,7 +53,7 @@ export default function registerPlayerEndEvent(kazagumo, client) {
                     }
                 } else {
                     scheduleDisconnect(player, kazagumo);
-                    await stopNowPlayingUpdates(client, player.guildId);
+                    await stopNowPlayingUpdates(client, player.guildId, 'tracklist');
                 }
             }
         } catch (error) {

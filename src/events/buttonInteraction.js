@@ -70,7 +70,7 @@ export async function tryHandlePlayerButtons(interaction, kazagumo, client) {
             case 'stop': {
                 player.queue.clear();
                 await player.destroy();
-                await stopNowPlayingUpdates(client, guildId);
+                await stopNowPlayingUpdates(client, guildId, 'session');
                 return true;
             }
             case 'clearqueue': {

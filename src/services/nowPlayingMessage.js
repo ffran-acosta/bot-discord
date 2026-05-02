@@ -84,7 +84,10 @@ export async function syncNowPlayingPanel(client, kazagumo, player) {
     const textId = player.textId;
     if (!textId) return null;
 
-    const channel = guild.channels.cache.get(textId);
+    let channel = guild.channels.cache.get(textId);
+    if (!channel) {
+        channel = await guild.channels.fetch(textId).catch(() => null);
+    }
     if (!channel?.isTextBased?.()) return null;
 
     const prev = panelState.get(guildId);

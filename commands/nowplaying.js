@@ -23,6 +23,6 @@ export default {
         player.setTextChannel(interaction.channel.id);
         await syncNowPlayingPanel(interaction.client, kazagumo, player);
 
-        return interaction.editReply('✅ Panel actualizado en este canal (se edita solo cada ~15 s).');
+        return interaction.editReply('Panel de reproducción');
     }
 };

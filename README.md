@@ -673,4 +673,4 @@ When inviting the bot, make sure to give it these permissions:
 
 **Enjoy your music bot! 🎵**
 
-**Thiago Brucezzi**
+**Franco Acosta**

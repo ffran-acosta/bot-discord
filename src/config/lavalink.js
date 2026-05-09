@@ -55,3 +55,22 @@ export const fallbackNodes = [
     { name: 'serenetia-v4',      url: 'lavalinkv4.serenetia.com:443',         auth: 'https://seretia.link/discord', secure: true },
     { name: 'lavalinkv4-2',      url: 'lavalinkv4-2.serenetia.com:443',       auth: 'https://seretia.link/discord', secure: true },
 ];
+
+/** @param {string} url */
+export function nodeUrlKey(url) {
+    return String(url).trim().toLowerCase();
+}
+
+export async function buildNodeOptions() {
+    const apiNodes = await fetchLavalinkNodes();
+    const seen = new Set();
+    /** @type {import('shoukaku').NodeOption[]} */
+    const out = [];
+    for (const n of [primaryNode, ...apiNodes, ...fallbackNodes]) {
+        const key = nodeUrlKey(n.url);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(n);
+    }
+    return out;
+}

@@ -5,7 +5,8 @@ import { Kazagumo } from 'kazagumo';
 import { readdirSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { fetchLavalinkNodes, primaryNode, fallbackNodes } from './src/config/lavalink.js';
+import { buildNodeOptions } from './src/config/lavalink.js';
+import { startLavalinkPoolMaintenance } from './src/services/lavalinkPool.js';
 import registerPlayerEndEvent from './src/events/playerEnd.js';
 import registerPlayerExceptionEvent from './src/events/playerException.js';
 import registerPlayerDestroyEvent from './src/events/playerDestroy.js';
@@ -36,14 +37,7 @@ const client = new Client({
 });
 
 logger.info('Obteniendo nodos de Lavalink desde API pública...');
-const apiNodes = await fetchLavalinkNodes();
-
-const seenUrls = new Set();
-const nodes = [primaryNode, ...apiNodes, ...fallbackNodes].filter(n => {
-    if (seenUrls.has(n.url)) return false;
-    seenUrls.add(n.url);
-    return true;
-});
+const nodes = await buildNodeOptions();
 
 logger.info(`Nodos de Lavalink listos (${nodes.length} total)`);
 nodes.forEach((n, i) => logger.info(`  ${i + 1}. ${n.url}  [${n.name}]`));
@@ -71,6 +65,8 @@ const kazagumo = new Kazagumo(
 );
 
 const shoukaku = kazagumo.shoukaku;
+
+startLavalinkPoolMaintenance(kazagumo, nodes);
 
 client.commands = new Collection();
 

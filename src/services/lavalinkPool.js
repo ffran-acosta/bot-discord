@@ -4,6 +4,7 @@ import { buildNodeOptions, nodeUrlKey } from '../config/lavalink.js';
 const HOUR_MS = 60 * 60 * 1000;
 const EMERGENCY_COOLDOWN_MS = 5 * 60 * 1000;
 const EMERGENCY_DEBOUNCE_MS = 2500;
+const WATCHDOG_MS = 5 * 60 * 1000;
 const FLAP_WINDOW_MS = 90 * 1000;
 const FLAP_CLOSES_THRESHOLD = 5;
 
@@ -48,7 +49,7 @@ export function startLavalinkPoolMaintenance(kazagumo, seededNodes) {
     }
 
     /**
-     * @param {'hourly' | 'emergency'} reason
+     * @param {'hourly' | 'emergency' | 'watchdog' | 'play'} reason
      */
     async function ingestNewNodes(reason) {
         if (refreshing) return;
@@ -70,7 +71,7 @@ export function startLavalinkPoolMaintenance(kazagumo, seededNodes) {
             if (added === 0) {
                 logger.debug(`Lavalink pool [${reason}]: sin URLs nuevas`);
             }
-            if (reason === 'emergency') {
+            if (reason === 'emergency' || reason === 'watchdog' || reason === 'play') {
                 lastEmergencyAt = Date.now();
             }
         } catch (err) {
@@ -80,21 +81,69 @@ export function startLavalinkPoolMaintenance(kazagumo, seededNodes) {
         }
     }
 
-    async function maybeEmergencyRefresh() {
-        if (connectedCount() > 0) return;
-        const now = Date.now();
-        if (lastEmergencyAt > 0 && now - lastEmergencyAt < EMERGENCY_COOLDOWN_MS) return;
+    /**
+     * Si no hay nodos conectados, vacía el pool y vuelve a sembrar desde buildNodeOptions.
+     * Corrige el caso en que urlsWithNode bloquea re-agregar URLs tras días sin conexión.
+     *
+     * @param {'emergency' | 'watchdog' | 'play'} reason
+     */
+    async function fullReseed(reason) {
+        if (refreshing) return;
+        refreshing = true;
+        try {
+            const candidates = await buildNodeOptions();
+            const before = shoukaku.nodes.size;
 
-        logger.warn('Lavalink pool: sin nodos conectados, refresh de emergencia');
-        await ingestNewNodes('emergency');
+            for (const name of [...shoukaku.nodes.keys()]) {
+                try {
+                    shoukaku.removeNode(name, reason);
+                } catch (err) {
+                    logger.warn(`removeNode(${name}) en reseed falló`, { error: err.message });
+                }
+            }
+
+            urlsWithNode.clear();
+            nameToUrl.clear();
+            closeHistory.clear();
+
+            let added = 0;
+            for (const opt of candidates) {
+                const key = nodeUrlKey(opt.url);
+                const name = uniqueNodeName(shoukaku, opt.name);
+                shoukaku.addNode({ ...opt, name });
+                urlsWithNode.add(key);
+                nameToUrl.set(name, key);
+                added++;
+            }
+
+            logger.warn(`Lavalink pool [${reason}]: reseed completo (${before} → ${added} nodos)`);
+            lastEmergencyAt = Date.now();
+        } catch (err) {
+            logger.warn(`Lavalink pool [${reason}] reseed falló`, { error: err.message });
+        } finally {
+            refreshing = false;
+        }
     }
 
-    function scheduleEmergencyCheck() {
-        if (emergencyTimer) clearTimeout(emergencyTimer);
-        emergencyTimer = setTimeout(() => {
-            emergencyTimer = null;
-            void maybeEmergencyRefresh();
-        }, EMERGENCY_DEBOUNCE_MS);
+    /**
+     * @param {'emergency' | 'watchdog' | 'play'} reason
+     */
+    async function recoverPool(reason) {
+        if (connectedCount() > 0) return;
+
+        const now = Date.now();
+        if (reason !== 'play' && lastEmergencyAt > 0 && now - lastEmergencyAt < EMERGENCY_COOLDOWN_MS) {
+            return;
+        }
+
+        const total = shoukaku.nodes.size;
+        logger.warn(`Lavalink pool [${reason}]: sin nodos conectados (total=${total}), reseed`);
+        await fullReseed(reason);
+    }
+
+    async function maybeEmergencyRefresh() {
+        if (connectedCount() > 0) return;
+        await recoverPool('emergency');
     }
 
     shoukaku.on('ready', (name) => {
@@ -125,9 +174,27 @@ export function startLavalinkPoolMaintenance(kazagumo, seededNodes) {
         scheduleEmergencyCheck();
     });
 
+    function scheduleEmergencyCheck() {
+        if (emergencyTimer) clearTimeout(emergencyTimer);
+        emergencyTimer = setTimeout(() => {
+            emergencyTimer = null;
+            void maybeEmergencyRefresh();
+        }, EMERGENCY_DEBOUNCE_MS);
+    }
+
     setInterval(() => {
         void ingestNewNodes('hourly');
     }, HOUR_MS);
 
-    logger.info('Lavalink pool: mantenimiento activo (refresh horario, emergencia, anti-flapping)');
+    setInterval(() => {
+        if (connectedCount() === 0) {
+            void recoverPool('watchdog');
+        }
+    }, WATCHDOG_MS);
+
+    logger.info('Lavalink pool: mantenimiento activo (refresh horario, emergencia, watchdog, anti-flapping)');
+
+    return {
+        requestReseed: (reason = 'play') => recoverPool(reason)
+    };
 }

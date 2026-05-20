@@ -5,7 +5,7 @@ function resolveStatus(client, kazagumo) {
     if (!client.isReady()) return 'down';
     const nodes = [...kazagumo.shoukaku.nodes.values()];
     const connected = nodes.filter(node => node.state === 1).length;
-    if (nodes.length > 0 && connected === 0) return 'degraded';
+    if (connected === 0) return nodes.length > 0 ? 'degraded' : 'down';
     return 'ok';
 }
 
@@ -21,7 +21,7 @@ export function startHealthcheckServer(client, kazagumo, port = Number(process.e
         const nodes = [...kazagumo.shoukaku.nodes.values()];
         const connectedNodes = nodes.filter(node => node.state === 1).length;
 
-        const httpCode = status === 'ok' || status === 'degraded' ? 200 : 503;
+        const httpCode = status === 'ok' ? 200 : status === 'degraded' ? 200 : 503;
         res.status(httpCode).json({
             status,
             uptimeMs: Math.floor(process.uptime() * 1000),

@@ -58,15 +58,15 @@ const kazagumo = new Kazagumo(
         moveOnDisconnect: true,
         resumable: false,
         resumableTimeout: 30,
-        reconnectTries: 2,
-        reconnectInterval: 30000,
+        reconnectTries: 6,
+        reconnectInterval: 15000,
         restTimeout: 20000
     }
 );
 
 const shoukaku = kazagumo.shoukaku;
 
-startLavalinkPoolMaintenance(kazagumo, nodes);
+kazagumo.lavalinkPool = startLavalinkPoolMaintenance(kazagumo, nodes);
 
 client.commands = new Collection();
 

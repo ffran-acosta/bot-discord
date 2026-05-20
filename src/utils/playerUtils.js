@@ -1,5 +1,9 @@
 import logger from './logger.js';
 import { isLikelySpotifyUrl } from './playSearchShared.js';
+import {
+    getConnectedLavalinkNodes,
+    waitForPlayLavalinkNodes
+} from '../services/lavalinkNodes.js';
 
 export class PlayerSetupError extends Error {
     constructor(userMessage) {
@@ -65,9 +69,15 @@ export async function resolveOrCreatePlayer(kazagumo, interaction, voiceChannel)
 
     if (!player) {
         const allNodes = [...kazagumo.shoukaku.nodes.values()];
-        const connectedNodes = allNodes.filter(n => n.state === 1);
+        let connectedNodes = getConnectedLavalinkNodes(kazagumo);
 
         logger.debug(`Creando player | nodos: ${allNodes.length} total, ${connectedNodes.length} conectados`, { guildId });
+
+        if (connectedNodes.length === 0) {
+            logger.warn('Sin nodos Lavalink conectados; solicitando reseed del pool', { guildId });
+            await kazagumo.lavalinkPool?.requestReseed?.('play');
+            connectedNodes = await waitForPlayLavalinkNodes(kazagumo);
+        }
 
         if (connectedNodes.length === 0) {
             throw new PlayerSetupError('❌ No hay nodos de Lavalink disponibles en este momento. Intentá de nuevo en unos instantes.');

@@ -15,4 +15,6 @@ export const NODE_RETRY_DELAY_MS = 500;
 /** Espera a Lavalink antes de rejoin tras restart (Discord ready suele llegar antes que los nodos). */
 export const LAVALINK_RESTORE_WAIT_MS = 45_000;
 export const LAVALINK_RESTORE_POLL_MS = 400;
+/** Espera en /play si el pool está vacío o reconectando. */
+export const LAVALINK_PLAY_WAIT_MS = 20_000;
 export const PREVIOUS_RESTART_THRESHOLD_MS = 3_000;

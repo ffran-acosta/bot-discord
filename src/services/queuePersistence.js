@@ -4,11 +4,8 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { KazagumoTrack } from 'kazagumo';
 import logger from '../utils/logger.js';
-import {
-    LAVALINK_RESTORE_POLL_MS,
-    LAVALINK_RESTORE_WAIT_MS,
-    NODE_RETRY_DELAY_MS
-} from '../config/constants.js';
+import { NODE_RETRY_DELAY_MS } from '../config/constants.js';
+import { waitForConnectedLavalinkNodes } from './lavalinkNodes.js';
 import { destroyStalePlayer } from '../utils/playerUtils.js';
 import { peekPlayerState, setAutoplay, setAutoplayContext, setLoopMode } from './playerState.js';
 
@@ -53,26 +50,6 @@ async function hydratePlayerFromPending(kazagumo, client, guildId, pending, requ
 
     const hasTracks = toAdd.length > 0;
     return { ok: hasTracks, tracks: toAdd.length, player };
-}
-
-/**
- * @param {import('kazagumo').Kazagumo} kazagumo
- */
-function getConnectedLavalinkNodes(kazagumo) {
-    return [...kazagumo.shoukaku.nodes.values()].filter(n => n.state === 1);
-}
-
-/**
- * @param {import('kazagumo').Kazagumo} kazagumo
- */
-async function waitForConnectedLavalinkNodes(kazagumo) {
-    const deadline = Date.now() + LAVALINK_RESTORE_WAIT_MS;
-    while (Date.now() < deadline) {
-        const nodes = getConnectedLavalinkNodes(kazagumo);
-        if (nodes.length > 0) return nodes;
-        await new Promise(r => setTimeout(r, LAVALINK_RESTORE_POLL_MS));
-    }
-    return [];
 }
 
 /**

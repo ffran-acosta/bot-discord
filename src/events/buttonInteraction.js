@@ -1,5 +1,6 @@
 import { syncNowPlayingPanel, stopNowPlayingUpdates } from '../services/nowPlayingMessage.js';
 import { PREVIOUS_RESTART_THRESHOLD_MS } from '../config/constants.js';
+import { isAutoplay, setAutoplay, setAutoplayContext } from '../services/playerState.js';
 import logger from '../utils/logger.js';
 
 /**
@@ -76,6 +77,19 @@ export async function tryHandlePlayerButtons(interaction, kazagumo, client) {
             case 'clearqueue': {
                 if (!player.queue.current) break;
                 player.queue.clear();
+                break;
+            }
+            case 'toggleautoplay': {
+                const guildId = player.guildId;
+                const next = !isAutoplay(guildId);
+                setAutoplay(guildId, next);
+                if (next && player.queue.current) {
+                    setAutoplayContext(guildId, player.queue.current);
+                }
+                logger.info(`Radio estilo ${next ? 'activado' : 'desactivado'} (botón)`, {
+                    guildId,
+                    user: interaction.user.tag
+                });
                 break;
             }
             default:

@@ -1,6 +1,7 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { formatTime } from '../utils/formatTime.js';
 import { PREVIOUS_RESTART_THRESHOLD_MS, PROGRESS_BAR_WIDTH } from '../config/constants.js';
+import { isAutoplay } from '../services/playerState.js';
 
 /**
  * @param {number} positionMs
@@ -41,6 +42,7 @@ export function buildNowPlayingEmbed(player) {
     const position = player.position ?? 0;
     const bar = buildProgressBar(position, current.length ?? 0);
     const req = current.requester ? `${current.requester}` : '—';
+    const radioOn = isAutoplay(player.guildId);
 
     return embed
         .setTitle(player.paused ? '⏸️ Pausado' : '▶️ Reproduciendo')
@@ -49,7 +51,12 @@ export function buildNowPlayingEmbed(player) {
             { name: 'Progreso', value: bar, inline: false },
             { name: 'Pedido por', value: req, inline: true },
             { name: 'Cola', value: `${player.queue.length} pendiente(s)`, inline: true },
-            { name: 'Volumen', value: `${player.volume ?? 100}%`, inline: true }
+            { name: 'Volumen', value: `${player.volume ?? 100}%`, inline: true },
+            {
+                name: 'Radio estilo',
+                value: radioOn ? '🟢 Activo — sigue con temas similares' : '⚫ Apagado',
+                inline: false
+            }
         )
         .setThumbnail(current.thumbnail || null);
 }
@@ -90,7 +97,13 @@ export function buildPlayerButtons(player) {
             .setLabel('Detener')
             .setStyle(ButtonStyle.Danger)
     );
+    const radioOn = isAutoplay(guildId);
     const extrasRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId(`player:toggleautoplay:${guildId}`)
+            .setLabel(radioOn ? '🎲 Radio estilo: ON' : '🎲 Radio estilo: OFF')
+            .setStyle(radioOn ? ButtonStyle.Success : ButtonStyle.Secondary)
+            .setDisabled(!hasTrack),
         new ButtonBuilder()
             .setCustomId(`player:clearqueue:${guildId}`)
             .setLabel('🗑 Vaciar cola')

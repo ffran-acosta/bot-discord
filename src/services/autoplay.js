@@ -22,15 +22,21 @@ export async function searchAndPlayRelatedSong(player, kazagumo, client, guild) 
     logger.info('Auto-reproducir: buscando canciones relacionadas', { guildId, context: contextTrack.title });
 
     try {
-        let searchQuery = contextTrack.title;
+        let searchQuery;
+        const artistFromMeta = contextTrack.author?.trim();
 
-        const artistMatch = contextTrack.title.match(/^([^-|]+)/);
-        if (artistMatch) {
-            const artistName = artistMatch[1].trim();
-            searchQuery = artistName;
-            logger.debug(`Auto-reproducir: artista extraído: ${artistName}`, { guildId });
+        if (artistFromMeta) {
+            searchQuery = `${artistFromMeta} mix`;
+            logger.debug(`Auto-reproducir: artista desde metadata: ${artistFromMeta}`, { guildId });
         } else {
-            searchQuery = `radio ${contextTrack.title}`;
+            const artistMatch = contextTrack.title.match(/^([^-|]+)/);
+            if (artistMatch) {
+                const artistName = artistMatch[1].trim();
+                searchQuery = `${artistName} mix`;
+                logger.debug(`Auto-reproducir: artista extraído del título: ${artistName}`, { guildId });
+            } else {
+                searchQuery = `${contextTrack.title} similar songs mix`;
+            }
         }
 
         logger.debug(`Auto-reproducir: buscando "${searchQuery}"`, { guildId });
@@ -109,8 +115,8 @@ export async function searchAndPlayRelatedSong(player, kazagumo, client, guild) 
                     if (channel?.isTextBased?.()) {
                         const embed = new EmbedBuilder()
                             .setColor(0x5865F2)
-                            .setTitle('🔄 Auto-reproducir')
-                            .setDescription(`**Reproduciendo tema relacionado:**\n[${relatedTrack.title}](${relatedTrack.uri})`)
+                            .setTitle('🎲 Radio estilo')
+                            .setDescription(`**Reproduciendo tema similar:**\n[${relatedTrack.title}](${relatedTrack.uri})`)
                             .addFields(
                                 { name: '⏱️ Duración', value: relatedTrack.length > 0 ? formatTime(relatedTrack.length) : 'En vivo', inline: true }
                             )

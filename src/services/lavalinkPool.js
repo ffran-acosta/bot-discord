@@ -195,6 +195,7 @@ export function startLavalinkPoolMaintenance(kazagumo, seededNodes) {
     logger.info('Lavalink pool: mantenimiento activo (refresh horario, emergencia, watchdog, anti-flapping)');
 
     return {
-        requestReseed: (reason = 'play') => recoverPool(reason)
+        requestReseed: (reason = 'play') => recoverPool(reason),
+        forceReseed: (reason = 'play-failed') => fullReseed(reason)
     };
 }

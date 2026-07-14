@@ -36,6 +36,46 @@ export async function destroyStalePlayer(kazagumo, guildId) {
 }
 
 /**
+ * Intenta crear el player probando cada nodo conectado en orden.
+ * @param {import('kazagumo').Kazagumo} kazagumo
+ * @param {string} guildId
+ * @param {import('discord.js').VoiceChannel} voiceChannel
+ * @param {import('discord.js').BaseInteraction} interaction
+ * @param {import('shoukaku').Node[]} connectedNodes
+ */
+async function tryCreatePlayer(kazagumo, guildId, voiceChannel, interaction, connectedNodes) {
+    for (const node of connectedNodes) {
+        try {
+            logger.debug(`Intentando nodo: ${node.name}`, { guildId });
+            const player = await kazagumo.createPlayer({
+                guildId,
+                voiceId: voiceChannel.id,
+                textId: interaction.channel.id,
+                deaf: true,
+                nodeName: node.name
+            });
+            logger.info(`Conectado via nodo: ${node.name}`, { guildId });
+            return player;
+        } catch (err) {
+            logger.warn(`Nodo ${node.name} falló: ${err.message}`, { guildId });
+            try {
+                const stale = kazagumo.players.get(guildId);
+                if (stale) await stale.destroy();
+            } catch { /* ignore */ }
+            try {
+                const conn = kazagumo.shoukaku.connections.get(guildId);
+                if (conn) {
+                    conn.disconnect();
+                    kazagumo.shoukaku.connections.delete(guildId);
+                }
+            } catch { /* ignore */ }
+            await new Promise(r => setTimeout(r, 500));
+        }
+    }
+    return null;
+}
+
+/**
  * Obtiene el player existente o crea uno nuevo.
  * Lanza PlayerSetupError con mensaje amigable si no se puede crear.
  * @param {import('kazagumo').Kazagumo} kazagumo
@@ -83,32 +123,14 @@ export async function resolveOrCreatePlayer(kazagumo, interaction, voiceChannel)
             throw new PlayerSetupError('❌ No hay nodos de Lavalink disponibles en este momento. Intentá de nuevo en unos instantes.');
         }
 
-        for (const node of connectedNodes) {
-            try {
-                logger.debug(`Intentando nodo: ${node.name}`, { guildId });
-                player = await kazagumo.createPlayer({
-                    guildId,
-                    voiceId: voiceChannel.id,
-                    textId: interaction.channel.id,
-                    deaf: true,
-                    nodeName: node.name
-                });
-                logger.info(`Conectado via nodo: ${node.name}`, { guildId });
-                break;
-            } catch (err) {
-                logger.warn(`Nodo ${node.name} falló: ${err.message}`, { guildId });
-                try {
-                    const stale = kazagumo.players.get(guildId);
-                    if (stale) await stale.destroy();
-                } catch { /* ignore */ }
-                try {
-                    const conn = kazagumo.shoukaku.connections.get(guildId);
-                    if (conn) {
-                        conn.disconnect();
-                        kazagumo.shoukaku.connections.delete(guildId);
-                    }
-                } catch { /* ignore */ }
-                await new Promise(r => setTimeout(r, 500));
+        player = await tryCreatePlayer(kazagumo, guildId, voiceChannel, interaction, connectedNodes);
+
+        if (!player) {
+            logger.warn('Todos los nodos conectados fallaron al crear el player; forzando refresh del pool', { guildId });
+            await kazagumo.lavalinkPool?.forceReseed?.('play-failed');
+            connectedNodes = await waitForPlayLavalinkNodes(kazagumo);
+            if (connectedNodes.length > 0) {
+                player = await tryCreatePlayer(kazagumo, guildId, voiceChannel, interaction, connectedNodes);
             }
         }
 

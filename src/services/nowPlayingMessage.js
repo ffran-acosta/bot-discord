@@ -29,15 +29,16 @@ export async function stopNowPlayingUpdates(client, guildId, panelEndReason = 's
     panelState.delete(guildId);
 
     if (!client) return;
-    const content =
-        panelEndReason === 'tracklist' ? PANEL_TRACKLIST_FINISHED : PANEL_SESSION_ENDED;
+    const content = panelEndReason === 'tracklist' ? PANEL_TRACKLIST_FINISHED : PANEL_SESSION_ENDED;
     try {
         const ch = await client.channels.fetch(s.channelId).catch(() => null);
         const msg = await ch?.messages.fetch(s.messageId).catch(() => null);
         if (msg?.editable) {
             await msg.edit({ content, embeds: [], components: [] });
         }
-    } catch { /* ignore */ }
+    } catch {
+        /* ignore */
+    }
 }
 
 /**
@@ -71,12 +72,37 @@ async function runTick(client, kazagumo, guildId) {
     }
 }
 
+/** @type {Map<string, Promise<unknown>>} */
+const syncQueue = new Map();
+
+/**
+ * Publica o actualiza el panel. Las llamadas se serializan por guild: si dos corren en paralelo
+ * (botón + playerEnd) ambas verían "sin panel", mandarían dos mensajes y dejarían un interval huérfano.
+ * @param {import('discord.js').Client} client
+ * @param {import('kazagumo').Kazagumo} kazagumo
+ * @param {import('kazagumo').KazagumoPlayer} player
+ * @returns {Promise<import('discord.js').Message | null>}
+ */
+export function syncNowPlayingPanel(client, kazagumo, player) {
+    const guildId = player.guildId;
+    const run = (syncQueue.get(guildId) ?? Promise.resolve())
+        .catch(() => {})
+        .then(() => doSyncNowPlayingPanel(client, kazagumo, player));
+    syncQueue.set(guildId, run);
+    void run
+        .finally(() => {
+            if (syncQueue.get(guildId) === run) syncQueue.delete(guildId);
+        })
+        .catch(() => {});
+    return run;
+}
+
 /**
  * @param {import('discord.js').Client} client
  * @param {import('kazagumo').Kazagumo} kazagumo
  * @param {import('kazagumo').KazagumoPlayer} player
  */
-export async function syncNowPlayingPanel(client, kazagumo, player) {
+async function doSyncNowPlayingPanel(client, kazagumo, player) {
     const guildId = player.guildId;
     const guild = client.guilds.cache.get(guildId);
     if (!guild) return null;

@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { COLORS } from '../src/ui/colors.js';
 import { requirePlayerInVoice } from '../src/middleware/guards.js';
 import logger from '../src/utils/logger.js';
 
@@ -7,7 +8,8 @@ export default {
         .setName('volume')
         .setDescription('Ajusta el volumen (0-100)')
         .addIntegerOption(option =>
-            option.setName('level')
+            option
+                .setName('level')
                 .setDescription('Nivel de volumen entre 0 y 100')
                 .setRequired(true)
                 .setMinValue(0)
@@ -15,7 +17,7 @@ export default {
         ),
 
     async execute(interaction, kazagumo) {
-        const guard = requirePlayerInVoice(interaction, kazagumo);
+        const guard = await requirePlayerInVoice(interaction, kazagumo);
         if (!guard) return;
         const { player } = guard;
 
@@ -27,7 +29,7 @@ export default {
             logger.info(`Volumen ajustado a ${volume}%`, { guildId: interaction.guild.id });
 
             const embed = new EmbedBuilder()
-                .setColor(0x5865F2)
+                .setColor(COLORS.primary)
                 .setTitle('🔊 Volumen')
                 .setDescription(`Volumen en **${volume}%**`)
                 .setTimestamp();

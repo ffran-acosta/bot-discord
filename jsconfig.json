@@ -1,0 +1,14 @@
+{
+    "compilerOptions": {
+        "target": "ES2023",
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
+        "checkJs": true,
+        "allowJs": true,
+        "noEmit": true,
+        "skipLibCheck": true,
+        "strict": false,
+        "maxNodeModuleJsDepth": 0
+    },
+    "include": ["index.js", "deploy-commands.js", "commands/**/*.js", "src/**/*.js", "test/**/*.js"]
+}

@@ -2,6 +2,7 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'disc
 import { formatTime } from '../utils/formatTime.js';
 import { PREVIOUS_RESTART_THRESHOLD_MS, PROGRESS_BAR_WIDTH } from '../config/constants.js';
 import { isAutoplay } from '../services/playerState.js';
+import { COLORS } from './colors.js';
 
 /**
  * @param {number} positionMs
@@ -23,7 +24,7 @@ export function buildProgressBar(positionMs, durationMs, width = PROGRESS_BAR_WI
  */
 export function buildNowPlayingEmbed(player) {
     const current = player.queue.current;
-    const embed = new EmbedBuilder().setColor(0x5865F2).setTimestamp();
+    const embed = new EmbedBuilder().setColor(COLORS.primary).setTimestamp();
 
     if (!current) {
         if (player.queue.length > 0) {
@@ -73,10 +74,8 @@ export function buildPlayerButtons(player) {
     const canPrevious =
         hasTrack &&
         (prevLen > 0 ||
-            (current?.isSeekable &&
-                current?.length > 0 &&
-                (pos >= PREVIOUS_RESTART_THRESHOLD_MS || player.paused)));
-    const transportRow = new ActionRowBuilder().addComponents(
+            (current?.isSeekable && current?.length > 0 && (pos >= PREVIOUS_RESTART_THRESHOLD_MS || player.paused)));
+    const transportRow = /** @type {ActionRowBuilder<ButtonBuilder>} */ (new ActionRowBuilder()).addComponents(
         new ButtonBuilder()
             .setCustomId(`player:previous:${guildId}`)
             .setLabel('⏮ Anterior')
@@ -92,13 +91,10 @@ export function buildPlayerButtons(player) {
             .setLabel('⏭ Siguiente')
             .setStyle(ButtonStyle.Secondary)
             .setDisabled(!hasTrack),
-        new ButtonBuilder()
-            .setCustomId(`player:stop:${guildId}`)
-            .setLabel('Detener')
-            .setStyle(ButtonStyle.Danger)
+        new ButtonBuilder().setCustomId(`player:stop:${guildId}`).setLabel('Detener').setStyle(ButtonStyle.Danger)
     );
     const radioOn = isAutoplay(guildId);
-    const extrasRow = new ActionRowBuilder().addComponents(
+    const extrasRow = /** @type {ActionRowBuilder<ButtonBuilder>} */ (new ActionRowBuilder()).addComponents(
         new ButtonBuilder()
             .setCustomId(`player:toggleautoplay:${guildId}`)
             .setLabel(radioOn ? '🎲 Radio estilo: ON' : '🎲 Radio estilo: OFF')

@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { COLORS } from '../src/ui/colors.js';
 import { requirePlayerInVoice } from '../src/middleware/guards.js';
 import logger from '../src/utils/logger.js';
 import { setAutoplay, setAutoplayContext } from '../src/services/playerState.js';
@@ -8,16 +9,15 @@ export default {
         .setName('autoplay')
         .setDescription('Activa o desactiva la reproducción automática de temas relacionados')
         .addStringOption(option =>
-            option.setName('mode')
+            option
+                .setName('mode')
                 .setDescription('Activar o desactivar la reproducción automática')
                 .setRequired(true)
-                .addChoices(
-                    { name: 'Activar', value: 'on' },
-                    { name: 'Desactivar', value: 'off' }
-                )),
+                .addChoices({ name: 'Activar', value: 'on' }, { name: 'Desactivar', value: 'off' })
+        ),
 
     async execute(interaction, kazagumo) {
-        const guard = requirePlayerInVoice(interaction, kazagumo);
+        const guard = await requirePlayerInVoice(interaction, kazagumo);
         if (!guard) return;
         const { player } = guard;
 
@@ -32,10 +32,8 @@ export default {
         }
 
         const embed = new EmbedBuilder()
-            .setColor(isEnabled ? 0x57F287 : 0xED4245)
-            .setTitle(
-                isEnabled ? '🔄 Reproducción automática activada' : '⏹️ Reproducción automática desactivada'
-            )
+            .setColor(isEnabled ? COLORS.success : COLORS.danger)
+            .setTitle(isEnabled ? '🔄 Reproducción automática activada' : '⏹️ Reproducción automática desactivada')
             .setDescription(
                 isEnabled
                     ? 'El bot reproducirá temas relacionados cuando la cola termine.\n\nUsá **`/play`** para agregar música manualmente o **`/autoplay`** con **Desactivar** para apagar.'

@@ -4,7 +4,7 @@ import { clearPlayerState } from '../services/playerState.js';
 import logger from '../utils/logger.js';
 
 export default function registerPlayerDestroyEvent(kazagumo, client) {
-    kazagumo.on('playerDestroy', (player) => {
+    kazagumo.on('playerDestroy', player => {
         const guildId = player.guildId;
         logger.info('Player destruido', { guildId });
         cancelEmptyChannelDisconnect(guildId);

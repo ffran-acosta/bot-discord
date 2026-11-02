@@ -1,10 +1,12 @@
+import { MessageFlags } from 'discord.js';
 import { syncNowPlayingPanel, stopNowPlayingUpdates } from '../services/nowPlayingMessage.js';
 import { PREVIOUS_RESTART_THRESHOLD_MS } from '../config/constants.js';
-import { isAutoplay, setAutoplay, setAutoplayContext } from '../services/playerState.js';
+import { isAutoplay, setAutoplay, setAutoplayContext, skipTrack } from '../services/playerState.js';
+import { requirePlayerInVoice } from '../middleware/guards.js';
 import logger from '../utils/logger.js';
 
 /**
- * @param {import('discord.js').ButtonInteraction} interaction
+ * @param {import('discord.js').Interaction} interaction
  * @param {import('kazagumo').Kazagumo} kazagumo
  * @param {import('discord.js').Client} client
  * @returns {Promise<boolean>} true si se manejó el botón `player:*`
@@ -20,21 +22,13 @@ export async function tryHandlePlayerButtons(interaction, kazagumo, client) {
 
     const [, action, guildId] = parts;
     if (guildId !== interaction.guildId) {
-        await interaction.reply({ content: '❌ Servidor no válido.', flags: 64 }).catch(() => {});
+        await interaction.reply({ content: '❌ Servidor no válido.', flags: MessageFlags.Ephemeral }).catch(() => {});
         return true;
     }
 
-    const player = kazagumo.players.get(interaction.guild.id);
-    if (!player) {
-        await interaction.reply({ content: '❌ No hay reproductor activo.', flags: 64 }).catch(() => {});
-        return true;
-    }
-
-    const voiceChannel = interaction.member?.voice?.channel;
-    if (!voiceChannel || player.voiceId !== voiceChannel.id) {
-        await interaction.reply({ content: '❌ Tenés que estar en el mismo canal de voz que el bot.', flags: 64 }).catch(() => {});
-        return true;
-    }
+    const guard = await requirePlayerInVoice(interaction, kazagumo);
+    if (!guard) return true;
+    const { player } = guard;
 
     await interaction.deferUpdate().catch(() => {});
 
@@ -49,12 +43,7 @@ export async function tryHandlePlayerButtons(interaction, kazagumo, client) {
                 const cur = player.queue.current;
                 if (!cur) break;
                 const pos = player.position ?? 0;
-                if (
-                    cur.isSeekable &&
-                    cur.length > 0 &&
-                    (pos >= PREVIOUS_RESTART_THRESHOLD_MS ||
-                        player.paused)
-                ) {
+                if (cur.isSeekable && cur.length > 0 && (pos >= PREVIOUS_RESTART_THRESHOLD_MS || player.paused)) {
                     await player.seek(0).catch(() => {});
                     break;
                 }
@@ -65,7 +54,7 @@ export async function tryHandlePlayerButtons(interaction, kazagumo, client) {
             }
             case 'skip': {
                 if (!player.queue.current) break;
-                await player.skip();
+                skipTrack(player);
                 break;
             }
             case 'stop': {
@@ -80,7 +69,6 @@ export async function tryHandlePlayerButtons(interaction, kazagumo, client) {
                 break;
             }
             case 'toggleautoplay': {
-                const guildId = player.guildId;
                 const next = !isAutoplay(guildId);
                 setAutoplay(guildId, next);
                 if (next && player.queue.current) {
@@ -99,7 +87,7 @@ export async function tryHandlePlayerButtons(interaction, kazagumo, client) {
         logger.error('Error ejecutando acción de botón de player', { action, guildId, error: err.message });
     }
 
-    const p = kazagumo.players.get(interaction.guild.id);
+    const p = kazagumo.players.get(guildId);
     if (p) await syncNowPlayingPanel(client, kazagumo, p);
 
     return true;

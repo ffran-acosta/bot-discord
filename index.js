@@ -1,11 +1,14 @@
 import { config } from 'dotenv';
-import { Client, GatewayIntentBits, Collection } from 'discord.js';
+import { Client, GatewayIntentBits, Collection, MessageFlags } from 'discord.js';
 import { Connectors } from 'shoukaku';
 import { Kazagumo } from 'kazagumo';
-import { readdirSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
 import { buildNodeOptions } from './src/config/lavalink.js';
+import {
+    LAVALINK_RECONNECT_INTERVAL_MS,
+    LAVALINK_RECONNECT_TRIES,
+    LAVALINK_REST_TIMEOUT_MS,
+    QUEUE_SAVE_INTERVAL_MS
+} from './src/config/constants.js';
 import { startLavalinkPoolMaintenance } from './src/services/lavalinkPool.js';
 import registerPlayerEndEvent from './src/events/playerEnd.js';
 import registerPlayerExceptionEvent from './src/events/playerException.js';
@@ -15,6 +18,7 @@ import registerShoukakuEvents from './src/events/shoukaku.js';
 import { tryHandlePlayerButtons } from './src/events/buttonInteraction.js';
 import { startHealthcheckServer } from './src/services/healthcheck.js';
 import { saveQueues, restoreQueues } from './src/services/queuePersistence.js';
+import { loadCommands } from './src/utils/loadCommands.js';
 import logger from './src/utils/logger.js';
 
 config();
@@ -24,16 +28,9 @@ if (!process.env.DISCORD_TOKEN) {
     process.exit(1);
 }
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
+// Solo slash commands y voz: no hacen falta GuildMessages ni MessageContent (privilegiado).
 const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.GuildVoiceStates,
-        GatewayIntentBits.MessageContent
-    ]
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates]
 });
 
 logger.info('Obteniendo nodos de Lavalink desde API pública...');
@@ -56,29 +53,20 @@ const kazagumo = new Kazagumo(
     nodes,
     {
         moveOnDisconnect: true,
-        resumable: false,
-        resumableTimeout: 30,
-        reconnectTries: 6,
-        reconnectInterval: 15000,
-        restTimeout: 20000
+        reconnectTries: LAVALINK_RECONNECT_TRIES,
+        reconnectInterval: LAVALINK_RECONNECT_INTERVAL_MS,
+        restTimeout: LAVALINK_REST_TIMEOUT_MS
     }
 );
 
 const shoukaku = kazagumo.shoukaku;
 
-kazagumo.lavalinkPool = startLavalinkPoolMaintenance(kazagumo, nodes);
+startLavalinkPoolMaintenance(kazagumo, nodes);
 
-client.commands = new Collection();
-
-const commandsPath = join(__dirname, 'commands');
-const commandFiles = readdirSync(commandsPath).filter(file => file.endsWith('.js'));
-
-for (const file of commandFiles) {
-    const filePath = join(commandsPath, file);
-    const command = await import(`file://${filePath}`);
-    if ('default' in command && command.default.data) {
-        client.commands.set(command.default.data.name, command.default);
-    }
+/** @type {Collection<string, import('./src/utils/loadCommands.js').Command>} */
+const commands = new Collection();
+for (const command of await loadCommands()) {
+    commands.set(command.data.name, command);
 }
 
 registerShoukakuEvents(shoukaku);
@@ -92,6 +80,10 @@ client.once('ready', async () => {
     logger.info(`Bot conectado como ${client.user.tag}`);
     logger.info(`Servidores: ${client.guilds.cache.size}`);
     await restoreQueues(kazagumo, client);
+
+    setInterval(() => {
+        saveQueues(kazagumo).catch(err => logger.error('Error en guardado periódico de colas', { error: err.message }));
+    }, QUEUE_SAVE_INTERVAL_MS);
 });
 
 client.on('interactionCreate', async interaction => {
@@ -99,14 +91,19 @@ client.on('interactionCreate', async interaction => {
 
     if (!interaction.isChatInputCommand()) return;
 
-    const command = client.commands.get(interaction.commandName);
+    const command = commands.get(interaction.commandName);
     if (!command) return;
 
     try {
         await command.execute(interaction, kazagumo);
     } catch (error) {
-        logger.error('Error ejecutando comando', { command: interaction.commandName, error: error.message, stack: error.stack });
-        const reply = { content: '❌ Ocurrió un error al ejecutar el comando.', flags: 64 };
+        logger.error('Error ejecutando comando', {
+            command: interaction.commandName,
+            error: error.message,
+            stack: error.stack
+        });
+        /** @type {import('discord.js').InteractionReplyOptions} */
+        const reply = { content: '❌ Ocurrió un error al ejecutar el comando.', flags: MessageFlags.Ephemeral };
         if (interaction.replied || interaction.deferred) {
             await interaction.followUp(reply);
         } else {
@@ -115,21 +112,19 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-process.on('unhandledRejection', (error) => {
-    logger.error('Unhandled promise rejection', { error: error?.message, stack: error?.stack });
-});
-
-process.on('uncaughtException', (error) => {
-    logger.error('Uncaught exception', { error: error?.message, stack: error?.stack });
-});
-
 let shuttingDown = false;
-async function gracefulShutdown() {
+
+/**
+ * Guarda las colas, destruye los players y sale.
+ * @param {number} exitCode
+ */
+async function gracefulShutdown(exitCode) {
     if (shuttingDown) return;
     shuttingDown = true;
     logger.info('Iniciando apagado graceful...');
     try {
         await saveQueues(kazagumo);
+        logger.info('Colas guardadas');
     } catch (err) {
         logger.error('Error guardando colas', { error: err.message });
     }
@@ -141,19 +136,36 @@ async function gracefulShutdown() {
         }
     }
     client.destroy();
-    await new Promise(resolve => {
-        if (healthcheckServer?.listening) {
-            healthcheckServer.close(() => resolve());
-        } else {
-            resolve();
-        }
-    });
+    await /** @type {Promise<void>} */ (
+        new Promise(resolve => {
+            if (healthcheckServer?.listening) {
+                healthcheckServer.close(() => resolve());
+            } else {
+                resolve();
+            }
+        })
+    );
     logger.info('Apagado graceful completado');
-    process.exit(0);
+    process.exit(exitCode);
 }
 
-process.on('SIGINT', () => { void gracefulShutdown(); });
-process.on('SIGTERM', () => { void gracefulShutdown(); });
+process.on('unhandledRejection', (/** @type {any} */ error) => {
+    logger.error('Unhandled promise rejection', { error: error?.message, stack: error?.stack });
+});
+
+// Tras una excepción no capturada el proceso queda en estado indefinido: guardar y salir; pm2 reinicia
+// y la cola se restaura al arrancar.
+process.on('uncaughtException', error => {
+    logger.error('Uncaught exception', { error: error?.message, stack: error?.stack });
+    void gracefulShutdown(1);
+});
+
+process.on('SIGINT', () => {
+    void gracefulShutdown(0);
+});
+process.on('SIGTERM', () => {
+    void gracefulShutdown(0);
+});
 
 client.login(process.env.DISCORD_TOKEN).catch(error => {
     logger.error('Error al iniciar sesión', { error: error.message });

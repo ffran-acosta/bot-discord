@@ -1,7 +1,11 @@
+import { markSkipRequested } from '../services/playerState.js';
 import logger from '../utils/logger.js';
 
 export default function registerPlayerExceptionEvent(kazagumo) {
     kazagumo.on('playerException', async (player, error) => {
+        // A la excepción le sigue un end 'loadFailed': que el loop de pista no la reintente en bucle.
+        markSkipRequested(player.guildId);
+
         const status = error.status || error.response?.status;
         logger.error('Excepción en player', {
             guildId: player.guildId,

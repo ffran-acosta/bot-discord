@@ -1,4 +1,5 @@
 import { scheduleEmptyChannelDisconnect, cancelEmptyChannelDisconnect } from '../services/timers.js';
+import { BOT_KICK_GRACE_MS } from '../config/constants.js';
 import logger from '../utils/logger.js';
 
 export default function registerVoiceStateUpdateEvent(client, kazagumo) {
@@ -33,7 +34,7 @@ export default function registerVoiceStateUpdateEvent(client, kazagumo) {
 
         if (oldState.channelId && !newState.channelId && player) {
             logger.warn('Bot desconectado manualmente del canal de voz', { guildId });
-            await new Promise(resolve => setTimeout(resolve, 3000));
+            await new Promise(resolve => setTimeout(resolve, BOT_KICK_GRACE_MS));
 
             const currentPlayer = kazagumo.players.get(guildId);
             if (!currentPlayer) return;
@@ -47,7 +48,10 @@ export default function registerVoiceStateUpdateEvent(client, kazagumo) {
             try {
                 await currentPlayer.destroy().catch(err => {
                     if (!err.message?.includes('already destroyed') && err.code !== 1) {
-                        logger.error('Error destruyendo player tras desconexión manual', { guildId, error: err.message });
+                        logger.error('Error destruyendo player tras desconexión manual', {
+                            guildId,
+                            error: err.message
+                        });
                     }
                 });
             } catch (err) {

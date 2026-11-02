@@ -1,9 +1,8 @@
 import logger from './logger.js';
 import { isLikelySpotifyUrl } from './playSearchShared.js';
-import {
-    getConnectedLavalinkNodes,
-    waitForPlayLavalinkNodes
-} from '../services/lavalinkNodes.js';
+import { getConnectedLavalinkNodes, waitForPlayLavalinkNodes } from '../services/lavalinkNodes.js';
+import { forcePoolReseed, requestPoolReseed } from '../services/lavalinkPool.js';
+import { NODE_RETRY_DELAY_MS } from '../config/constants.js';
 
 export class PlayerSetupError extends Error {
     constructor(userMessage) {
@@ -14,17 +13,19 @@ export class PlayerSetupError extends Error {
 }
 
 export function isSessionError(err) {
-    return (
-        err?.status === 404 ||
-        err?.message?.includes('Session not found') ||
-        err?.message?.includes('session')
-    );
+    const msg = String(err?.message ?? '');
+    // 'Session not found': Lavalink REST; 'missing session id': Shoukaku sin sesión de voz.
+    return err?.status === 404 || msg.includes('Session not found') || msg.includes('missing session id');
 }
 
 export async function destroyStalePlayer(kazagumo, guildId) {
     const stale = kazagumo.players.get(guildId);
     if (stale) {
-        try { await stale.destroy(); } catch { /* ignore */ }
+        try {
+            await stale.destroy();
+        } catch {
+            /* ignore */
+        }
     }
     try {
         const conn = kazagumo.shoukaku.connections.get(guildId);
@@ -32,25 +33,26 @@ export async function destroyStalePlayer(kazagumo, guildId) {
             conn.disconnect();
             kazagumo.shoukaku.connections.delete(guildId);
         }
-    } catch { /* ignore */ }
+    } catch {
+        /* ignore */
+    }
 }
 
 /**
- * Intenta crear el player probando cada nodo conectado en orden.
+ * Intenta crear el player probando cada nodo en orden; limpia el intento fallido antes del siguiente.
  * @param {import('kazagumo').Kazagumo} kazagumo
- * @param {string} guildId
- * @param {import('discord.js').VoiceChannel} voiceChannel
- * @param {import('discord.js').BaseInteraction} interaction
- * @param {import('shoukaku').Node[]} connectedNodes
+ * @param {{ guildId: string, voiceId: string, textId?: string | null }} opts
+ * @param {import('shoukaku').Node[]} nodes
+ * @returns {Promise<import('kazagumo').KazagumoPlayer | null>}
  */
-async function tryCreatePlayer(kazagumo, guildId, voiceChannel, interaction, connectedNodes) {
-    for (const node of connectedNodes) {
+export async function createPlayerOnNodes(kazagumo, { guildId, voiceId, textId }, nodes) {
+    for (const node of nodes) {
         try {
             logger.debug(`Intentando nodo: ${node.name}`, { guildId });
             const player = await kazagumo.createPlayer({
                 guildId,
-                voiceId: voiceChannel.id,
-                textId: interaction.channel.id,
+                voiceId,
+                ...(textId ? { textId } : {}),
                 deaf: true,
                 nodeName: node.name
             });
@@ -58,18 +60,8 @@ async function tryCreatePlayer(kazagumo, guildId, voiceChannel, interaction, con
             return player;
         } catch (err) {
             logger.warn(`Nodo ${node.name} falló: ${err.message}`, { guildId });
-            try {
-                const stale = kazagumo.players.get(guildId);
-                if (stale) await stale.destroy();
-            } catch { /* ignore */ }
-            try {
-                const conn = kazagumo.shoukaku.connections.get(guildId);
-                if (conn) {
-                    conn.disconnect();
-                    kazagumo.shoukaku.connections.delete(guildId);
-                }
-            } catch { /* ignore */ }
-            await new Promise(r => setTimeout(r, 500));
+            await destroyStalePlayer(kazagumo, guildId);
+            await new Promise(r => setTimeout(r, NODE_RETRY_DELAY_MS));
         }
     }
     return null;
@@ -79,8 +71,8 @@ async function tryCreatePlayer(kazagumo, guildId, voiceChannel, interaction, con
  * Obtiene el player existente o crea uno nuevo.
  * Lanza PlayerSetupError con mensaje amigable si no se puede crear.
  * @param {import('kazagumo').Kazagumo} kazagumo
- * @param {import('discord.js').BaseInteraction} interaction
- * @param {import('discord.js').VoiceChannel} voiceChannel
+ * @param {import('discord.js').ChatInputCommandInteraction} interaction
+ * @param {import('discord.js').VoiceBasedChannel} voiceChannel
  * @returns {Promise<import('kazagumo').KazagumoPlayer>}
  */
 export async function resolveOrCreatePlayer(kazagumo, interaction, voiceChannel) {
@@ -93,14 +85,14 @@ export async function resolveOrCreatePlayer(kazagumo, interaction, voiceChannel)
     if (player) {
         if (!botVoiceChannel) {
             logger.warn('Bot no está en canal de voz pero el player existe, destruyendo', { guildId });
-            try { await player.destroy(); } catch { /* ignore */ }
+            await player.destroy().catch(() => {});
             player = null;
         } else if (player.voiceId !== voiceChannel.id) {
             try {
                 await player.setVoiceChannel(voiceChannel.id);
             } catch (err) {
                 logger.error('Error al mover el player a otro canal', { guildId, error: err.message });
-                try { await player.destroy(); } catch { /* ignore */ }
+                await player.destroy().catch(() => {});
                 player = null;
             }
         }
@@ -108,34 +100,43 @@ export async function resolveOrCreatePlayer(kazagumo, interaction, voiceChannel)
     }
 
     if (!player) {
+        const playerOpts = { guildId, voiceId: voiceChannel.id, textId: interaction.channel.id };
         const allNodes = [...kazagumo.shoukaku.nodes.values()];
         let connectedNodes = getConnectedLavalinkNodes(kazagumo);
 
-        logger.debug(`Creando player | nodos: ${allNodes.length} total, ${connectedNodes.length} conectados`, { guildId });
+        logger.debug(`Creando player | nodos: ${allNodes.length} total, ${connectedNodes.length} conectados`, {
+            guildId
+        });
 
         if (connectedNodes.length === 0) {
             logger.warn('Sin nodos Lavalink conectados; solicitando reseed del pool', { guildId });
-            await kazagumo.lavalinkPool?.requestReseed?.('play');
+            await requestPoolReseed('play');
             connectedNodes = await waitForPlayLavalinkNodes(kazagumo);
         }
 
         if (connectedNodes.length === 0) {
-            throw new PlayerSetupError('❌ No hay nodos de Lavalink disponibles en este momento. Intentá de nuevo en unos instantes.');
+            throw new PlayerSetupError(
+                '❌ No hay nodos de Lavalink disponibles en este momento. Intentá de nuevo en unos instantes.'
+            );
         }
 
-        player = await tryCreatePlayer(kazagumo, guildId, voiceChannel, interaction, connectedNodes);
+        player = await createPlayerOnNodes(kazagumo, playerOpts, connectedNodes);
 
         if (!player) {
-            logger.warn('Todos los nodos conectados fallaron al crear el player; forzando refresh del pool', { guildId });
-            await kazagumo.lavalinkPool?.forceReseed?.('play-failed');
+            logger.warn('Todos los nodos conectados fallaron al crear el player; forzando refresh del pool', {
+                guildId
+            });
+            await forcePoolReseed('play-failed');
             connectedNodes = await waitForPlayLavalinkNodes(kazagumo);
             if (connectedNodes.length > 0) {
-                player = await tryCreatePlayer(kazagumo, guildId, voiceChannel, interaction, connectedNodes);
+                player = await createPlayerOnNodes(kazagumo, playerOpts, connectedNodes);
             }
         }
 
         if (!player) {
-            throw new PlayerSetupError('❌ No se pudo conectar al canal de voz. Todos los nodos fallaron. Intentá de nuevo.');
+            throw new PlayerSetupError(
+                '❌ No se pudo conectar al canal de voz. Todos los nodos fallaron. Intentá de nuevo.'
+            );
         }
     }
 
@@ -143,7 +144,7 @@ export async function resolveOrCreatePlayer(kazagumo, interaction, voiceChannel)
 }
 
 /**
- * @param {Error} err
+ * @param {Error & { status?: number }} err
  * @param {string} query
  */
 export function buildPlayErrorMessage(err, query) {

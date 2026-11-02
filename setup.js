@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { execSync } from 'child_process';
 import { config } from 'dotenv';
 
@@ -14,14 +14,14 @@ console.log('📋 Verifying requirements...\n');
 try {
     const nodeVersion = execSync('node --version', { encoding: 'utf-8' }).trim();
     const majorVersion = parseInt(nodeVersion.replace('v', '').split('.')[0]);
-    
+
     if (majorVersion < 18) {
         console.error('❌ Node.js version 18 or higher required');
         console.error(`   Current version: ${nodeVersion}`);
         console.error('   Download Node.js from: https://nodejs.org/\n');
         process.exit(1);
     }
-    
+
     console.log(`✅ Node.js: ${nodeVersion}`);
 } catch (error) {
     console.error('❌ Node.js is not installed');
@@ -75,15 +75,9 @@ if (existsSync(envPath)) {
 
 // Verify required variables
 const requiredVars = {
-    'DISCORD_TOKEN': 'Discord bot token',
-    'LAVALINK_URL': 'Lavalink server URL (e.g., host:port)',
-    'LAVALINK_PASSWORD': 'Lavalink password'
-};
-
-const optionalVars = {
-    'DISCORD_CLIENT_ID': 'Bot Application ID (optional, obtained automatically)',
-    'GUILD_ID': 'Server ID for instant commands (optional)',
-    'LAVALINK_SECURE': 'true/false for secure connection (automatically detected if port is 443)'
+    DISCORD_TOKEN: 'Discord bot token',
+    LAVALINK_URL: 'Lavalink server URL (e.g., host:port)',
+    LAVALINK_PASSWORD: 'Lavalink password'
 };
 
 let missingVars = [];
@@ -109,13 +103,7 @@ if (missingVars.length > 0) {
 // Verify commands
 console.log('📁 Verifying file structure...\n');
 
-const requiredFiles = [
-    'index.js',
-    'deploy-commands.js',
-    'commands/play.js',
-    'commands/stop.js',
-    'commands/skip.js'
-];
+const requiredFiles = ['index.js', 'deploy-commands.js', 'commands/play.js', 'commands/stop.js', 'commands/skip.js'];
 
 let missingFiles = [];
 

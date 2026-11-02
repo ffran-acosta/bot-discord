@@ -1,19 +1,43 @@
 import logger from '../utils/logger.js';
 import { buildNodeOptions, nodeUrlKey } from '../config/lavalink.js';
 
-const HOUR_MS = 60 * 60 * 1000;
-const EMERGENCY_COOLDOWN_MS = 5 * 60 * 1000;
-const EMERGENCY_DEBOUNCE_MS = 2500;
-const WATCHDOG_MS = 5 * 60 * 1000;
-const FLAP_WINDOW_MS = 90 * 1000;
-const FLAP_CLOSES_THRESHOLD = 5;
+import {
+    LAVALINK_POOL_EMERGENCY_COOLDOWN_MS as EMERGENCY_COOLDOWN_MS,
+    LAVALINK_POOL_EMERGENCY_DEBOUNCE_MS as EMERGENCY_DEBOUNCE_MS,
+    LAVALINK_POOL_FLAP_CLOSES_THRESHOLD as FLAP_CLOSES_THRESHOLD,
+    LAVALINK_POOL_FLAP_WINDOW_MS as FLAP_WINDOW_MS,
+    LAVALINK_POOL_REFRESH_MS as REFRESH_MS,
+    LAVALINK_POOL_WATCHDOG_MS as WATCHDOG_MS
+} from '../config/constants.js';
+
+/** @type {{ requestReseed: (reason?: 'emergency' | 'watchdog' | 'play') => Promise<void>, forceReseed: (reason?: string) => Promise<void> } | null} */
+let pool = null;
+
+/**
+ * Reseed si no queda ningún nodo conectado. No-op si el mantenimiento no arrancó.
+ * @param {'emergency' | 'watchdog' | 'play'} [reason]
+ */
+export async function requestPoolReseed(reason = 'play') {
+    await pool?.requestReseed(reason);
+}
+
+/**
+ * Reseed completo aunque haya nodos conectados (p. ej. todos fallan al crear el player).
+ * @param {string} [reason]
+ */
+export async function forcePoolReseed(reason = 'play-failed') {
+    await pool?.forceReseed(reason);
+}
 
 /**
  * @param {import('shoukaku').Shoukaku} shoukaku
  * @param {string} preferred
  */
 function uniqueNodeName(shoukaku, preferred) {
-    const base = String(preferred || 'node').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 40) || 'node';
+    const base =
+        String(preferred || 'node')
+            .replace(/[^a-zA-Z0-9_-]/g, '_')
+            .substring(0, 40) || 'node';
     let name = base;
     let i = 0;
     while (shoukaku.nodes.has(name)) {
@@ -85,7 +109,7 @@ export function startLavalinkPoolMaintenance(kazagumo, seededNodes) {
      * Si no hay nodos conectados, vacía el pool y vuelve a sembrar desde buildNodeOptions.
      * Corrige el caso en que urlsWithNode bloquea re-agregar URLs tras días sin conexión.
      *
-     * @param {'emergency' | 'watchdog' | 'play'} reason
+     * @param {string} reason
      */
     async function fullReseed(reason) {
         if (refreshing) return;
@@ -146,7 +170,7 @@ export function startLavalinkPoolMaintenance(kazagumo, seededNodes) {
         await recoverPool('emergency');
     }
 
-    shoukaku.on('ready', (name) => {
+    shoukaku.on('ready', name => {
         closeHistory.delete(name);
     });
 
@@ -161,7 +185,10 @@ export function startLavalinkPoolMaintenance(kazagumo, seededNodes) {
             if (list.length >= FLAP_CLOSES_THRESHOLD) {
                 closeHistory.delete(name);
                 const urlKeyResolved = nameToUrl.get(name);
-                logger.warn(`Lavalink ${name}: flapping (${list.length} cierres en ${FLAP_WINDOW_MS / 1000}s), removiendo nodo`, { code, reason: reason || '' });
+                logger.warn(
+                    `Lavalink ${name}: flapping (${list.length} cierres en ${FLAP_WINDOW_MS / 1000}s), removiendo nodo`,
+                    { code, reason: reason || '' }
+                );
                 try {
                     shoukaku.removeNode(name, 'flapping');
                     if (urlKeyResolved) urlsWithNode.delete(urlKeyResolved);
@@ -184,7 +211,7 @@ export function startLavalinkPoolMaintenance(kazagumo, seededNodes) {
 
     setInterval(() => {
         void ingestNewNodes('hourly');
-    }, HOUR_MS);
+    }, REFRESH_MS);
 
     setInterval(() => {
         if (connectedCount() === 0) {
@@ -194,7 +221,7 @@ export function startLavalinkPoolMaintenance(kazagumo, seededNodes) {
 
     logger.info('Lavalink pool: mantenimiento activo (refresh horario, emergencia, watchdog, anti-flapping)');
 
-    return {
+    pool = {
         requestReseed: (reason = 'play') => recoverPool(reason),
         forceReseed: (reason = 'play-failed') => fullReseed(reason)
     };

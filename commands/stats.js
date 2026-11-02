@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { COLORS } from '../src/ui/colors.js';
 import { formatBytes, formatUptime, getBotStats } from '../src/services/stats.js';
 
 export default {
@@ -10,7 +11,7 @@ export default {
         const s = getBotStats(interaction.client, kazagumo);
 
         const embed = new EmbedBuilder()
-            .setColor(0x5865F2)
+            .setColor(COLORS.primary)
             .setTitle('📊 Estadísticas')
             .addFields(
                 { name: 'Tiempo activo', value: formatUptime(s.uptimeMs), inline: true },

@@ -6,8 +6,26 @@ import {
     EmbedBuilder,
     SlashCommandBuilder
 } from 'discord.js';
-import { formatTime } from '../src/utils/formatTime.js';
+import { formatTrackDuration } from '../src/utils/formatTime.js';
 import { QUEUE_COLLECTOR_TIMEOUT_MS, QUEUE_PAGE_SIZE } from '../src/config/constants.js';
+import { requirePlayer } from '../src/middleware/guards.js';
+import { COLORS } from '../src/ui/colors.js';
+
+/** Límite de Discord para el valor de un field de embed. */
+const EMBED_FIELD_MAX = 1024;
+
+/**
+ * Une líneas completas sin pasar el límite del field (cortar a mitad rompe el markdown de los links).
+ * @param {string[]} lines
+ */
+export function joinLinesWithinLimit(lines) {
+    for (let count = lines.length; count > 0; count--) {
+        const omitted = lines.length - count;
+        const text = lines.slice(0, count).join('\n') + (omitted > 0 ? `\n…y ${omitted} más en esta página` : '');
+        if (text.length <= EMBED_FIELD_MAX) return text;
+    }
+    return lines[0].slice(0, EMBED_FIELD_MAX);
+}
 
 /**
  * @param {import('kazagumo').KazagumoPlayer} player
@@ -23,22 +41,19 @@ function buildQueueEmbed(player, page) {
     const slice = queue.slice(start, start + QUEUE_PAGE_SIZE);
 
     const embed = new EmbedBuilder()
-        .setColor(0x5865F2)
+        .setColor(COLORS.primary)
         .setTitle('📋 Cola de reproducción')
         .setDescription(
             `**En reproducción:**\n[${current.title}](${current.uri ?? '#'})\n` +
-                `⏱️ ${current.length > 0 ? formatTime(current.length) : 'En vivo'} · 👤 ${current.requester ?? '—'}`
+                `⏱️ ${formatTrackDuration(current.length)} · 👤 ${current.requester ?? '—'}`
         )
         .setThumbnail(current.thumbnail || null);
 
     if (slice.length > 0) {
         const lines = slice.map(
-            (track, i) =>
-                `**${start + i + 1}.** [${track.title}](${track.uri ?? '#'}) · ${track.requester ?? '—'}`
+            (track, i) => `**${start + i + 1}.** [${track.title}](${track.uri ?? '#'}) · ${track.requester ?? '—'}`
         );
-        let block = lines.join('\n');
-        if (block.length > 4096) block = `${block.slice(0, 4090)}…`;
-        embed.addFields({ name: `Siguientes (${totalUpcoming})`, value: block });
+        embed.addFields({ name: `Siguientes (${totalUpcoming})`, value: joinLinesWithinLimit(lines) });
     } else {
         embed.addFields({ name: 'Siguientes', value: 'No hay más temas en cola.' });
     }
@@ -70,14 +85,13 @@ function buildQueueRows(page, maxPage) {
 }
 
 export default {
-    data: new SlashCommandBuilder()
-        .setName('queue')
-        .setDescription('Muestra la cola de reproducción (10 por página)'),
+    data: new SlashCommandBuilder().setName('queue').setDescription('Muestra la cola de reproducción (10 por página)'),
 
     async execute(interaction, kazagumo) {
-        const player = kazagumo.players.get(interaction.guild.id);
+        const player = await requirePlayer(interaction, kazagumo);
+        if (!player) return;
 
-        if (!player || !player.queue.current) {
+        if (!player.queue.current) {
             return interaction.reply('❌ No hay música en reproducción.');
         }
 

@@ -1,12 +1,10 @@
-import { mkdirSync } from 'fs';
-import { readFile, writeFile } from 'fs/promises';
+import { mkdir, readFile, rename, writeFile } from 'fs/promises';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { KazagumoTrack } from 'kazagumo';
 import logger from '../utils/logger.js';
-import { NODE_RETRY_DELAY_MS } from '../config/constants.js';
 import { waitForConnectedLavalinkNodes } from './lavalinkNodes.js';
-import { destroyStalePlayer } from '../utils/playerUtils.js';
+import { createPlayerOnNodes } from '../utils/playerUtils.js';
 import { peekPlayerState, setAutoplay, setAutoplayContext, setLoopMode } from './playerState.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -15,6 +13,9 @@ const queuesPath = join(dataDir, 'queues.json');
 
 /** @type {Map<string, object>} */
 const pendingByGuild = new Map();
+
+/** Último snapshot escrito, para no reescribir el archivo si no cambió nada. */
+let lastSavedGuildsJson = null;
 
 async function hydratePlayerFromPending(kazagumo, client, guildId, pending, requesterUser) {
     const player = kazagumo.players.get(guildId);
@@ -52,37 +53,6 @@ async function hydratePlayerFromPending(kazagumo, client, guildId, pending, requ
     return { ok: hasTracks, tracks: toAdd.length, player };
 }
 
-/**
- * @param {import('kazagumo').Kazagumo} kazagumo
- * @param {string} guildId
- * @param {string} voiceId
- * @param {string | null} textId
- * @param {import('shoukaku').Node[]} nodes
- */
-async function createRestoredPlayer(kazagumo, guildId, voiceId, textId, nodes) {
-    for (const node of nodes) {
-        try {
-            /** @type {{ guildId: string, voiceId: string, deaf: boolean, nodeName: string, textId?: string }} */
-            const opts = {
-                guildId,
-                voiceId,
-                deaf: true,
-                nodeName: node.name
-            };
-            if (textId) opts.textId = textId;
-            return await kazagumo.createPlayer(opts);
-        } catch (err) {
-            logger.warn(`Rejoin automático: falló createPlayer en nodo ${node.name}`, {
-                guildId,
-                error: err.message
-            });
-            await destroyStalePlayer(kazagumo, guildId);
-            await new Promise(r => setTimeout(r, NODE_RETRY_DELAY_MS));
-        }
-    }
-    return null;
-}
-
 function trackToPlain(track) {
     if (!track || !track.track) return null;
     const rid = track.requester?.id != null ? String(track.requester.id) : null;
@@ -103,15 +73,25 @@ function trackToPlain(track) {
     };
 }
 
+/** Serializa los guardados (periódico + apagado) para que no escriban el .tmp a la vez. */
+let saveChain = Promise.resolve();
+
+/**
+ * @param {import('kazagumo').Kazagumo} kazagumo
+ * @returns {Promise<void>}
+ */
+export function saveQueues(kazagumo) {
+    const run = saveChain.catch(() => {}).then(() => writeQueuesSnapshot(kazagumo));
+    saveChain = run;
+    return run;
+}
+
 /**
  * @param {import('kazagumo').Kazagumo} kazagumo
  */
-export async function saveQueues(kazagumo) {
-    try {
-        mkdirSync(dataDir, { recursive: true });
-    } catch { /* ignore */ }
-
-    const guilds = {};
+async function writeQueuesSnapshot(kazagumo) {
+    // Colas restauradas que todavía nadie retomó con /play: si no se incluyen, el guardado las borra.
+    const guilds = Object.fromEntries(pendingByGuild);
     for (const player of kazagumo.players.values()) {
         const current = trackToPlain(player.queue.current);
         const queue = player.queue.map(t => trackToPlain(t)).filter(Boolean);
@@ -136,14 +116,22 @@ export async function saveQueues(kazagumo) {
         };
     }
 
+    const guildsJson = JSON.stringify(guilds);
+    if (guildsJson === lastSavedGuildsJson) return;
+
     const payload = {
         version: 1,
         savedAt: new Date().toISOString(),
         guilds
     };
 
-    await writeFile(queuesPath, JSON.stringify(payload, null, 2), 'utf8');
-    logger.info(`Colas guardadas (${Object.keys(guilds).length} guild(s))`);
+    // Escritura atómica: si el proceso muere a mitad, queues.json queda intacto.
+    await mkdir(dataDir, { recursive: true });
+    const tmpPath = `${queuesPath}.tmp`;
+    await writeFile(tmpPath, JSON.stringify(payload, null, 2), 'utf8');
+    await rename(tmpPath, queuesPath);
+    lastSavedGuildsJson = guildsJson;
+    logger.debug(`Colas guardadas (${Object.keys(guilds).length} guild(s))`);
 }
 
 /**
@@ -170,7 +158,7 @@ export async function restoreQueues(kazagumo, client) {
 
     const guildEntries = Object.entries(data.guilds);
     const wantsAutoRejoin = guildEntries.some(([guildId, entry]) => {
-        if (!entry || (!entry.current && !(entry.queue?.length) && !(entry.previous?.length))) return false;
+        if (!entry || (!entry.current && !entry.queue?.length && !entry.previous?.length)) return false;
         if (!entry._wasPlaying || !entry.voiceId) return false;
         return Boolean(client.guilds.cache.get(guildId));
     });
@@ -179,14 +167,16 @@ export async function restoreQueues(kazagumo, client) {
     if (wantsAutoRejoin) {
         rejoinNodes = await waitForConnectedLavalinkNodes(kazagumo);
         if (rejoinNodes.length === 0) {
-            logger.warn('Restore: Lavalink sin nodos listos tras esperar; rejoin automático deshabilitado para esta sesión');
+            logger.warn(
+                'Restore: Lavalink sin nodos listos tras esperar; rejoin automático deshabilitado para esta sesión'
+            );
         }
     }
 
     for (const [guildId, entry] of guildEntries) {
         const guild = client.guilds.cache.get(guildId);
         if (!guild) continue;
-        if (!entry || (!entry.current && !(entry.queue?.length) && !(entry.previous?.length))) continue;
+        if (!entry || (!entry.current && !entry.queue?.length && !entry.previous?.length)) continue;
 
         pendingByGuild.set(guildId, {
             voiceId: entry.voiceId ?? null,
@@ -209,13 +199,14 @@ export async function restoreQueues(kazagumo, client) {
                 const hasHumans = Boolean(voice?.isVoiceBased?.() && voice.members?.some(m => !m.user.bot));
 
                 if (!voice?.isVoiceBased?.()) {
-                    logger.warn('No se pudo hacer rejoin automático: canal de voz no disponible', { guildId, voiceId: entry.voiceId });
-                } else {
-                    const player = await createRestoredPlayer(
-                        kazagumo,
+                    logger.warn('No se pudo hacer rejoin automático: canal de voz no disponible', {
                         guildId,
-                        entry.voiceId,
-                        entry.textId ?? null,
+                        voiceId: entry.voiceId
+                    });
+                } else {
+                    const player = await createPlayerOnNodes(
+                        kazagumo,
+                        { guildId, voiceId: entry.voiceId, textId: entry.textId ?? null },
                         rejoinNodes
                     );
 
@@ -231,8 +222,7 @@ export async function restoreQueues(kazagumo, client) {
                         );
 
                         const q = hydrated.player?.queue;
-                        const canPlay =
-                            hydrated.ok && q && (q.current || q.length > 0);
+                        const canPlay = hydrated.ok && q && (q.current || q.length > 0);
 
                         if (canPlay) {
                             await hydrated.player.play();
@@ -264,7 +254,7 @@ export async function restoreQueues(kazagumo, client) {
 
 async function deserializeTrack(kazagumo, client, plain, fallbackUser) {
     if (!plain?.encoded || !plain.info) return null;
-    const raw = { encoded: plain.encoded, info: { ...plain.info } };
+    const raw = { encoded: plain.encoded, info: { ...plain.info }, pluginInfo: {} };
     let requester = fallbackUser;
     if (plain.requesterId) {
         requester = await client.users.fetch(plain.requesterId).catch(() => fallbackUser);

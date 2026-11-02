@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { COLORS } from '../src/ui/colors.js';
 import { requirePlayerInVoice } from '../src/middleware/guards.js';
 import logger from '../src/utils/logger.js';
 
@@ -8,7 +9,7 @@ export default {
         .setDescription('Detiene la reproducción, vacía la cola y desconecta al bot'),
 
     async execute(interaction, kazagumo) {
-        const guard = requirePlayerInVoice(interaction, kazagumo);
+        const guard = await requirePlayerInVoice(interaction, kazagumo);
         if (!guard) return;
         const { player } = guard;
 
@@ -20,7 +21,7 @@ export default {
         }
 
         const embed = new EmbedBuilder()
-            .setColor(0xED4245)
+            .setColor(COLORS.danger)
             .setTitle('⏹️ Reproducción detenida')
             .setDescription('Se vació la cola y el bot se desconectó del canal de voz.')
             .setTimestamp();

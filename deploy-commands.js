@@ -1,26 +1,13 @@
 import { REST, Routes } from 'discord.js';
 import { config } from 'dotenv';
-import { readdirSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { loadCommands } from './src/utils/loadCommands.js';
 
 config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
 const commands = [];
-const commandsPath = join(__dirname, 'commands');
-const commandFiles = readdirSync(commandsPath).filter(file => file.endsWith('.js'));
-
-// Load all commands
-for (const file of commandFiles) {
-    const filePath = join(commandsPath, file);
-    const command = await import(`file://${filePath}`);
-    if ('default' in command && command.default.data) {
-        commands.push(command.default.data.toJSON());
-        console.log(`✅ Command loaded: ${command.default.data.name}`);
-    }
+for (const command of await loadCommands()) {
+    commands.push(command.data.toJSON());
+    console.log(`✅ Command loaded: ${command.data.name}`);
 }
 
 // Create REST instance
@@ -32,21 +19,21 @@ async function getClientId() {
     if (process.env.DISCORD_CLIENT_ID || process.env.CLIENT_ID) {
         return process.env.DISCORD_CLIENT_ID || process.env.CLIENT_ID;
     }
-    
+
     // Get Client ID from Discord API using the token
     try {
         const response = await fetch('https://discord.com/api/v10/oauth2/@me', {
             headers: {
-                'Authorization': `Bot ${process.env.DISCORD_TOKEN}`
+                Authorization: `Bot ${process.env.DISCORD_TOKEN}`
             }
         });
-        
+
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        
+
         const data = await response.json();
-        
+
         if (data.application?.id) {
             return data.application.id;
         } else {
@@ -74,26 +61,20 @@ async function deployCommands() {
         // If there's a GUILD_ID in environment variables, use server commands (faster)
         // If not, use global commands (can take up to 1 hour)
         const guildId = process.env.GUILD_ID || process.env.DISCORD_GUILD_ID;
-        
+
         let data;
         if (guildId) {
             console.log(`🏠 Using SERVER commands (appear immediately)`);
             console.log(`   Server ID: ${guildId}`);
             try {
-                data = await rest.put(
-                    Routes.applicationGuildCommands(clientId, guildId),
-                    { body: commands }
-                );
+                data = await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: commands });
                 console.log(`✅ Successfully registered ${data.length} slash commands on the server!`);
             } catch (guildError) {
                 // If server registration fails (e.g., Missing Access), fallback to global
                 if (guildError.code === 50001 || guildError.code === 50013) {
                     console.warn(`⚠️  Server registration failed (Missing Access). Falling back to global commands...`);
                     console.log(`🌍 Using GLOBAL commands (can take up to 1 hour to appear)`);
-                    data = await rest.put(
-                        Routes.applicationCommands(clientId),
-                        { body: commands }
-                    );
+                    data = await rest.put(Routes.applicationCommands(clientId), { body: commands });
                     console.log(`✅ Successfully registered ${data.length} slash commands globally!`);
                 } else {
                     throw guildError; // Re-throw if it's a different error
@@ -102,16 +83,13 @@ async function deployCommands() {
         } else {
             console.log(`🌍 Using GLOBAL commands (can take up to 1 hour to appear)`);
             console.log(`💡 Tip: Add GUILD_ID to your .env for instant commands`);
-            data = await rest.put(
-                Routes.applicationCommands(clientId),
-                { body: commands }
-            );
+            data = await rest.put(Routes.applicationCommands(clientId), { body: commands });
             console.log(`✅ Successfully registered ${data.length} slash commands globally!`);
         }
 
         console.log(`\n📝 Registered commands:`);
         data.forEach(cmd => console.log(`   - /${cmd.name}`));
-        
+
         if (!guildId) {
             console.log(`\n⏰ Note: Global commands can take up to 1 hour to appear.`);
             console.log(`   For instant commands, add GUILD_ID to your .env file`);

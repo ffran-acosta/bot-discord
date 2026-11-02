@@ -1,15 +1,14 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { COLORS } from '../src/ui/colors.js';
 import { requirePlayerInVoice } from '../src/middleware/guards.js';
 import logger from '../src/utils/logger.js';
-import { isAutoplay } from '../src/services/playerState.js';
+import { isAutoplay, skipTrack } from '../src/services/playerState.js';
 
 export default {
-    data: new SlashCommandBuilder()
-        .setName('skip')
-        .setDescription('Salta a la siguiente canción'),
+    data: new SlashCommandBuilder().setName('skip').setDescription('Salta a la siguiente canción'),
 
     async execute(interaction, kazagumo) {
-        const guard = requirePlayerInVoice(interaction, kazagumo);
+        const guard = await requirePlayerInVoice(interaction, kazagumo);
         if (!guard) return;
         const { player } = guard;
 
@@ -23,10 +22,10 @@ export default {
 
         logger.info('Skip', { guildId, skipped: currentTrack.title, next: nextTrack?.title ?? 'nothing' });
 
-        await player.skip();
+        skipTrack(player);
 
         const embed = new EmbedBuilder()
-            .setColor(0x5865F2)
+            .setColor(COLORS.primary)
             .setTitle('⏭️ Canción saltada')
             .setDescription(`Se saltó: **${currentTrack.title}**`)
             .setTimestamp();

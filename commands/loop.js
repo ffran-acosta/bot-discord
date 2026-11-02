@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { COLORS } from '../src/ui/colors.js';
 import { requirePlayerInVoice } from '../src/middleware/guards.js';
 import { setLoopMode } from '../src/services/playerState.js';
 
@@ -19,7 +20,7 @@ export default {
         ),
 
     async execute(interaction, kazagumo) {
-        const guard = requirePlayerInVoice(interaction, kazagumo);
+        const guard = await requirePlayerInVoice(interaction, kazagumo);
         if (!guard) return;
         const { player } = guard;
 
@@ -29,7 +30,7 @@ export default {
 
         const labels = { off: 'Apagado', track: 'Pista actual', queue: 'Cola completa' };
         const embed = new EmbedBuilder()
-            .setColor(0x5865F2)
+            .setColor(COLORS.primary)
             .setTitle('🔁 Modo repetición')
             .setDescription(`Configurado en **${labels[mode]}**`)
             .setTimestamp();

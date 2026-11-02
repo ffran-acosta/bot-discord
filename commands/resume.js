@@ -1,13 +1,12 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { COLORS } from '../src/ui/colors.js';
 import { requirePlayerInVoice } from '../src/middleware/guards.js';
 
 export default {
-    data: new SlashCommandBuilder()
-        .setName('resume')
-        .setDescription('Reanuda la reproducción'),
+    data: new SlashCommandBuilder().setName('resume').setDescription('Reanuda la reproducción'),
 
     async execute(interaction, kazagumo) {
-        const guard = requirePlayerInVoice(interaction, kazagumo);
+        const guard = await requirePlayerInVoice(interaction, kazagumo);
         if (!guard) return;
         const { player } = guard;
 
@@ -18,7 +17,7 @@ export default {
         await player.pause(false);
 
         const embed = new EmbedBuilder()
-            .setColor(0x57F287)
+            .setColor(COLORS.success)
             .setTitle('▶️ Reanudado')
             .setDescription(`Sonando: **${player.queue.current?.title ?? '—'}**`)
             .setTimestamp();

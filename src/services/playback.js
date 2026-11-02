@@ -1,15 +1,8 @@
-import { EmbedBuilder } from 'discord.js';
 import { applyPendingRestoreIfAny } from './queuePersistence.js';
 import { syncNowPlayingPanel } from './nowPlayingMessage.js';
-import {
-    MAX_PLAYLIST_TRACKS,
-    RETRY_DELAY_MS
-} from '../config/constants.js';
-import {
-    hasYoutubeListParameter,
-    isLikelySpotifyUrl
-} from '../utils/playSearchShared.js';
-import { formatTime } from '../utils/formatTime.js';
+import { MAX_PLAYLIST_TRACKS, RETRY_DELAY_MS } from '../config/constants.js';
+import { hasYoutubeListParameter, isLikelySpotifyUrl } from '../utils/playSearchShared.js';
+import { buildEnqueueEmbed } from '../ui/enqueueEmbed.js';
 import {
     resolveOrCreatePlayer,
     destroyStalePlayer,
@@ -29,7 +22,7 @@ function enqueueAtQueueFront(player, tracks) {
     const q = player.queue;
     if (q.current) {
         q.splice(0, 0, ...tracks);
-        q.emitChanges?.();
+        /** @type {any} */ (q).emitChanges?.(); // privado en los tipos de kazagumo
     } else {
         q.add(tracks);
     }
@@ -43,7 +36,7 @@ function enqueueAtQueueFront(player, tracks) {
  */
 export async function searchAndEnqueue(interaction, kazagumo, query, { position }) {
     const guildId = interaction.guild.id;
-    const voiceChannel = interaction.member.voice.channel;
+    const voiceChannel = /** @type {import('discord.js').GuildMember} */ (interaction.member).voice.channel;
     if (!voiceChannel) {
         await interaction.editReply('❌ Tenés que estar en un canal de voz para usar este comando.');
         return;
@@ -79,13 +72,18 @@ export async function searchAndEnqueue(interaction, kazagumo, query, { position 
             if (!isPlaylist && result.type === 'SEARCH' && result.tracks.length > 1 && hasYoutubeListParameter(query)) {
                 isPlaylist = true;
                 tracksToAdd = result.tracks.slice(0, MAX_PLAYLIST_TRACKS);
-                logger.info(`URL de lista YouTube devolvió SEARCH; tratando como playlist (${tracksToAdd.length} pistas)`, { guildId });
+                logger.info(
+                    `URL de lista YouTube devolvió SEARCH; tratando como playlist (${tracksToAdd.length} pistas)`,
+                    { guildId }
+                );
             }
 
             if (isPlaylist) tracksToAdd = tracksToAdd.slice(0, MAX_PLAYLIST_TRACKS);
 
             if (isPlaylist && tracksToAdd.length === 0) {
-                return interaction.editReply('❌ La playlist no tiene pistas cargables (lista vacía o error del nodo).');
+                return interaction.editReply(
+                    '❌ La playlist no tiene pistas cargables (lista vacía o error del nodo).'
+                );
             }
 
             const track = tracksToAdd[0];
@@ -110,42 +108,19 @@ export async function searchAndEnqueue(interaction, kazagumo, query, { position 
 
             if (isAutoplay(guildId)) setAutoplayContext(guildId, track);
 
-            const color = position === 'front' ? 0xFEE75C : 0x5865F2;
-            const embed = new EmbedBuilder().setColor(color).setThumbnail(track.thumbnail || null).setTimestamp();
-
-            if (isPlaylist) {
-                const plTitle = result.playlistName ?? (hasYoutubeListParameter(query) ? 'YouTube playlist' : 'Playlist');
-                if (position === 'front') {
-                    embed
-                        .setTitle('⏩ Playlist — a continuación')
-                        .setDescription(`**${plTitle}** — ${tracksToAdd.length} canción(es) insertadas al frente de la cola`)
-                        .addFields({ name: '👤 Pedido por', value: `${interaction.user}`, inline: true });
-                } else {
-                    embed
-                        .setTitle('📋 Playlist agregada')
-                        .setDescription(`**${plTitle}** — ${tracksToAdd.length} canción(es) agregadas a la cola`)
-                        .addFields({ name: '👤 Pedido por', value: `${interaction.user}`, inline: true });
-                }
-                if (result.tracks.length > tracksToAdd.length) {
-                    embed.setFooter({ text: `Mostrando las primeras ${tracksToAdd.length} pistas (límite ${MAX_PLAYLIST_TRACKS}).` });
-                }
-            } else if (position === 'front') {
-                embed
-                    .setTitle('⏩ Reproducir a continuación')
-                    .setDescription(`**[${track.title}](${track.uri})** — insertada después de la canción actual`)
-                    .addFields(
-                        { name: '👤 Pedido por', value: `${interaction.user}`, inline: true },
-                        { name: '⏱️ Duración', value: track.length > 0 ? formatTime(track.length) : 'En vivo', inline: true }
-                    );
-            } else {
-                embed
-                    .setTitle('🎵 Canción agregada')
-                    .setDescription(`**[${track.title}](${track.uri})**`)
-                    .addFields(
-                        { name: '👤 Pedido por', value: `${interaction.user}`, inline: true },
-                        { name: '⏱️ Duración', value: track.length > 0 ? formatTime(track.length) : 'En vivo', inline: true }
-                    );
-            }
+            const embed = buildEnqueueEmbed({
+                track,
+                requester: interaction.user,
+                position,
+                playlist: isPlaylist
+                    ? {
+                          title:
+                              result.playlistName ?? (hasYoutubeListParameter(query) ? 'YouTube playlist' : 'Playlist'),
+                          added: tracksToAdd.length,
+                          total: result.tracks.length
+                      }
+                    : null
+            });
 
             if (!isCurrentlyPlaying) {
                 try {
@@ -172,7 +147,11 @@ export async function searchAndEnqueue(interaction, kazagumo, query, { position 
                 await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
                 return attempt();
             }
-            logger.error(`Error en ${position === 'front' ? 'playnext' : 'play'}`, { guildId, error: err.message, stack: err.stack });
+            logger.error(`Error en ${position === 'front' ? 'playnext' : 'play'}`, {
+                guildId,
+                error: err.message,
+                stack: err.stack
+            });
             await interaction.editReply(buildPlayErrorMessage(err, query));
         }
     };

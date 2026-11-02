@@ -134,7 +134,6 @@ Both scripts accept `DEPLOY_HOST`, `DEPLOY_DIR` (and `DEPLOY_BRANCH` / `DEPLOY_P
 
 ## 🙏 Credits
 
-- Originally based on [Discord-Music-Bot](https://github.com/thiagobrucezzi/Discord-Music-Bot) by thiagobrucezzi
 - [Kazagumo](https://github.com/Takiyo0/Kazagumo) · [Shoukaku](https://github.com/shipgirlproject/Shoukaku) · [Lavalink](https://github.com/lavalink-devs/Lavalink) · [discord.js](https://discord.js.org/)
 
 Released under the [MIT License](LICENSE).

@@ -1,5 +1,6 @@
 import { EmbedBuilder } from 'discord.js';
-import { formatTime } from '../utils/formatTime.js';
+import { formatTrackDuration } from '../utils/formatTime.js';
+import { COLORS } from '../ui/colors.js';
 import logger from '../utils/logger.js';
 import {
     getAutoplayContext,
@@ -9,6 +10,35 @@ import {
 } from './playerState.js';
 import { cancelDisconnect } from './timers.js';
 import { AUTOPLAY_DELAY_MS } from '../config/constants.js';
+
+const NON_MUSIC_KEYWORDS = [
+    'how to', 'tutorial', 'guide', 'tips', 'tricks',
+    'radio concierto', 'emisión en directo', 'live radio',
+    'internet radio', 'licensing', 'keyfob', 'volvo',
+    'things you didn\'t know', 'cassette - radio'
+];
+
+/**
+ * Descarta el mismo tema, contenido que no es música y temas parecidos a los ya sonados.
+ * @param {{ uri?: string, title: string }} track
+ * @param {{ uri?: string, title: string }} contextTrack
+ * @param {{ uri?: string } | null | undefined} currentTrack
+ * @param {Array<{ uri?: string, title: string }>} history
+ */
+export function isRelatedCandidate(track, contextTrack, currentTrack, history) {
+    if (track.uri === contextTrack.uri || (currentTrack && track.uri === currentTrack.uri)) return false;
+
+    const trackTitleLower = track.title.toLowerCase();
+    if (trackTitleLower === contextTrack.title.toLowerCase()) return false;
+    if (NON_MUSIC_KEYWORDS.some(keyword => trackTitleLower.includes(keyword))) return false;
+
+    const trackWords = trackTitleLower.split(/\s+/).filter(w => w.length > 3);
+    return !history.some(historyTrack => {
+        if (historyTrack.uri === track.uri) return true;
+        const historyWords = historyTrack.title.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+        return trackWords.filter(w => historyWords.includes(w)).length >= 2;
+    });
+}
 
 export async function searchAndPlayRelatedSong(player, kazagumo, client, guild) {
     const guildId = player.guildId;
@@ -48,43 +78,9 @@ export async function searchAndPlayRelatedSong(player, kazagumo, client, guild) 
         const history = getAutoplayHistory(guildId);
 
         if (result.tracks && result.tracks.length > 0) {
-            const relatedTracks = result.tracks.filter(track => {
-                if (track.uri === contextTrack.uri ||
-                    (player.queue.current && track.uri === player.queue.current.uri)) {
-                    return false;
-                }
-
-                const trackTitleLower = track.title.toLowerCase();
-                const contextTitleLower = contextTrack.title.toLowerCase();
-                if (trackTitleLower === contextTitleLower) {
-                    return false;
-                }
-
-                const nonMusicKeywords = [
-                    'how to', 'tutorial', 'guide', 'tips', 'tricks',
-                    'radio concierto', 'emisión en directo', 'live radio',
-                    'internet radio', 'licensing', 'keyfob', 'volvo',
-                    'things you didn\'t know', 'cassette - radio'
-                ];
-                const isNonMusic = nonMusicKeywords.some(keyword =>
-                    trackTitleLower.includes(keyword)
-                );
-                if (isNonMusic) {
-                    return false;
-                }
-
-                const inHistory = history.some(historyTrack => {
-                    if (historyTrack.uri === track.uri) return true;
-                    const historyTitleLower = historyTrack.title.toLowerCase();
-                    const trackWords = trackTitleLower.split(/\s+/).filter(w => w.length > 3);
-                    const historyWords = historyTitleLower.split(/\s+/).filter(w => w.length > 3);
-                    const commonWords = trackWords.filter(w => historyWords.includes(w));
-                    if (commonWords.length >= 2) return true;
-                    return false;
-                });
-
-                return !inHistory;
-            });
+            const relatedTracks = result.tracks.filter(track =>
+                isRelatedCandidate(track, contextTrack, player.queue.current, history)
+            );
 
             if (relatedTracks.length > 0) {
                 const relatedTrack = relatedTracks[0];
@@ -114,11 +110,11 @@ export async function searchAndPlayRelatedSong(player, kazagumo, client, guild) 
                         await guild.channels.fetch(player.textId).catch(() => null);
                     if (channel?.isTextBased?.()) {
                         const embed = new EmbedBuilder()
-                            .setColor(0x5865F2)
+                            .setColor(COLORS.primary)
                             .setTitle('🎲 Radio estilo')
                             .setDescription(`**Reproduciendo tema similar:**\n[${relatedTrack.title}](${relatedTrack.uri})`)
                             .addFields(
-                                { name: '⏱️ Duración', value: relatedTrack.length > 0 ? formatTime(relatedTrack.length) : 'En vivo', inline: true }
+                                { name: '⏱️ Duración', value: formatTrackDuration(relatedTrack.length), inline: true }
                             )
                             .setThumbnail(relatedTrack.thumbnail || null)
                             .setTimestamp();

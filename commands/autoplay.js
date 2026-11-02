@@ -9,13 +9,12 @@ export default {
         .setName('autoplay')
         .setDescription('Activa o desactiva la reproducción automática de temas relacionados')
         .addStringOption(option =>
-            option.setName('mode')
+            option
+                .setName('mode')
                 .setDescription('Activar o desactivar la reproducción automática')
                 .setRequired(true)
-                .addChoices(
-                    { name: 'Activar', value: 'on' },
-                    { name: 'Desactivar', value: 'off' }
-                )),
+                .addChoices({ name: 'Activar', value: 'on' }, { name: 'Desactivar', value: 'off' })
+        ),
 
     async execute(interaction, kazagumo) {
         const guard = await requirePlayerInVoice(interaction, kazagumo);
@@ -34,9 +33,7 @@ export default {
 
         const embed = new EmbedBuilder()
             .setColor(isEnabled ? COLORS.success : COLORS.danger)
-            .setTitle(
-                isEnabled ? '🔄 Reproducción automática activada' : '⏹️ Reproducción automática desactivada'
-            )
+            .setTitle(isEnabled ? '🔄 Reproducción automática activada' : '⏹️ Reproducción automática desactivada')
             .setDescription(
                 isEnabled
                     ? 'El bot reproducirá temas relacionados cuando la cola termine.\n\nUsá **`/play`** para agregar música manualmente o **`/autoplay`** con **Desactivar** para apagar.'

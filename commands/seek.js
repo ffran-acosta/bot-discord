@@ -26,10 +26,7 @@ export default {
         .setName('seek')
         .setDescription('Salta a una posición en la pista actual (mm:ss o segundos)')
         .addStringOption(option =>
-            option
-                .setName('time')
-                .setDescription('Tiempo en segundos (ej. 90) o mm:ss (ej. 1:30)')
-                .setRequired(true)
+            option.setName('time').setDescription('Tiempo en segundos (ej. 90) o mm:ss (ej. 1:30)').setRequired(true)
         ),
 
     async execute(interaction, kazagumo) {

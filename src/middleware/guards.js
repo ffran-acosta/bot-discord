@@ -10,7 +10,10 @@ async function rejectWith(interaction, content) {
     try {
         await interaction.reply({ content, flags: MessageFlags.Ephemeral });
     } catch (error) {
-        logger.warn('No se pudo responder el rechazo de un guard', { guildId: interaction.guildId, error: error.message });
+        logger.warn('No se pudo responder el rechazo de un guard', {
+            guildId: interaction.guildId,
+            error: error.message
+        });
     }
 }
 

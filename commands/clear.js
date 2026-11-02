@@ -3,9 +3,7 @@ import { COLORS } from '../src/ui/colors.js';
 import { requirePlayerInVoice } from '../src/middleware/guards.js';
 
 export default {
-    data: new SlashCommandBuilder()
-        .setName('clear')
-        .setDescription('Vacía la cola (la pista actual sigue sonando)'),
+    data: new SlashCommandBuilder().setName('clear').setDescription('Vacía la cola (la pista actual sigue sonando)'),
 
     async execute(interaction, kazagumo) {
         const guard = await requirePlayerInVoice(interaction, kazagumo);
@@ -18,11 +16,7 @@ export default {
         const embed = new EmbedBuilder()
             .setColor(COLORS.danger)
             .setTitle('🗑️ Cola vaciada')
-            .setDescription(
-                removed > 0
-                    ? `Se sacaron **${removed}** tema(s) de la cola.`
-                    : 'La cola ya estaba vacía.'
-            )
+            .setDescription(removed > 0 ? `Se sacaron **${removed}** tema(s) de la cola.` : 'La cola ya estaba vacía.')
             .setTimestamp();
 
         await interaction.reply({ embeds: [embed] });

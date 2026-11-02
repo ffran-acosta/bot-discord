@@ -1,7 +1,7 @@
 import logger from '../utils/logger.js';
 
 export default function registerShoukakuEvents(shoukaku) {
-    shoukaku.on('ready', (name) => {
+    shoukaku.on('ready', name => {
         logger.info(`Lavalink ${name}: conectado`);
     });
 
@@ -20,7 +20,10 @@ export default function registerShoukakuEvents(shoukaku) {
                 try {
                     if (player && !moved) {
                         player.destroy().catch(err => {
-                            logger.error(`Error destruyendo player tras desconexión`, { guildId: player.guildId, error: err.message });
+                            logger.error(`Error destruyendo player tras desconexión`, {
+                                guildId: player.guildId,
+                                error: err.message
+                            });
                         });
                     }
                 } catch (err) {
@@ -31,17 +34,18 @@ export default function registerShoukakuEvents(shoukaku) {
     });
 
     shoukaku.on('debug', (name, info) => {
-        if (typeof info === 'string' && (
-            info.includes('Connection') ||
-            info.includes('Player') ||
-            info.includes('Error') ||
-            info.includes('404') ||
-            info.includes('disconnect') ||
-            info.includes('Voice') ||
-            info.includes('Session') ||
-            info.includes('Server Update') ||
-            info.includes('State Update')
-        )) {
+        if (
+            typeof info === 'string' &&
+            (info.includes('Connection') ||
+                info.includes('Player') ||
+                info.includes('Error') ||
+                info.includes('404') ||
+                info.includes('disconnect') ||
+                info.includes('Voice') ||
+                info.includes('Session') ||
+                info.includes('Server Update') ||
+                info.includes('State Update'))
+        ) {
             logger.debug(`[${name}] ${info}`);
         }
     });

@@ -7,9 +7,7 @@ export default {
         .setName('playnext')
         .setDescription('Inserta una canción después de la actual (frente de la cola)')
         .addStringOption(option =>
-            option.setName('song')
-                .setDescription('Nombre o URL de la canción')
-                .setRequired(true)
+            option.setName('song').setDescription('Nombre o URL de la canción').setRequired(true)
         ),
 
     async execute(interaction, kazagumo) {

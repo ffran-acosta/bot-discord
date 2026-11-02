@@ -1,4 +1,11 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType, EmbedBuilder, SlashCommandBuilder } from 'discord.js';
+import {
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    ComponentType,
+    EmbedBuilder,
+    SlashCommandBuilder
+} from 'discord.js';
 import { formatTrackDuration } from '../src/utils/formatTime.js';
 import { QUEUE_COLLECTOR_TIMEOUT_MS, QUEUE_PAGE_SIZE } from '../src/config/constants.js';
 import { requirePlayer } from '../src/middleware/guards.js';
@@ -78,9 +85,7 @@ function buildQueueRows(page, maxPage) {
 }
 
 export default {
-    data: new SlashCommandBuilder()
-        .setName('queue')
-        .setDescription('Muestra la cola de reproducción (10 por página)'),
+    data: new SlashCommandBuilder().setName('queue').setDescription('Muestra la cola de reproducción (10 por página)'),
 
     async execute(interaction, kazagumo) {
         const player = await requirePlayer(interaction, kazagumo);

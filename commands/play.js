@@ -7,9 +7,7 @@ export default {
         .setName('play')
         .setDescription('Reproduce una canción o la agrega a la cola')
         .addStringOption(option =>
-            option.setName('song')
-                .setDescription('Nombre o URL de la canción')
-                .setRequired(true)
+            option.setName('song').setDescription('Nombre o URL de la canción').setRequired(true)
         ),
 
     async execute(interaction, kazagumo) {

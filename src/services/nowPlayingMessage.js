@@ -29,15 +29,16 @@ export async function stopNowPlayingUpdates(client, guildId, panelEndReason = 's
     panelState.delete(guildId);
 
     if (!client) return;
-    const content =
-        panelEndReason === 'tracklist' ? PANEL_TRACKLIST_FINISHED : PANEL_SESSION_ENDED;
+    const content = panelEndReason === 'tracklist' ? PANEL_TRACKLIST_FINISHED : PANEL_SESSION_ENDED;
     try {
         const ch = await client.channels.fetch(s.channelId).catch(() => null);
         const msg = await ch?.messages.fetch(s.messageId).catch(() => null);
         if (msg?.editable) {
             await msg.edit({ content, embeds: [], components: [] });
         }
-    } catch { /* ignore */ }
+    } catch {
+        /* ignore */
+    }
 }
 
 /**
@@ -88,9 +89,11 @@ export function syncNowPlayingPanel(client, kazagumo, player) {
         .catch(() => {})
         .then(() => doSyncNowPlayingPanel(client, kazagumo, player));
     syncQueue.set(guildId, run);
-    void run.finally(() => {
-        if (syncQueue.get(guildId) === run) syncQueue.delete(guildId);
-    }).catch(() => {});
+    void run
+        .finally(() => {
+            if (syncQueue.get(guildId) === run) syncQueue.delete(guildId);
+        })
+        .catch(() => {});
     return run;
 }
 

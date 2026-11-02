@@ -138,11 +138,11 @@ async function gracefulShutdown(exitCode) {
     client.destroy();
     await /** @type {Promise<void>} */ (
         new Promise(resolve => {
-        if (healthcheckServer?.listening) {
-            healthcheckServer.close(() => resolve());
-        } else {
-            resolve();
-        }
+            if (healthcheckServer?.listening) {
+                healthcheckServer.close(() => resolve());
+            } else {
+                resolve();
+            }
         })
     );
     logger.info('Apagado graceful completado');

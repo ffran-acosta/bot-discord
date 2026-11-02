@@ -30,7 +30,9 @@ export function buildEnqueueEmbed({ track, requester, position, playlist }) {
             )
             .addFields(requesterField);
         if (playlist.total > playlist.added) {
-            embed.setFooter({ text: `Mostrando las primeras ${playlist.added} pistas (límite ${MAX_PLAYLIST_TRACKS}).` });
+            embed.setFooter({
+                text: `Mostrando las primeras ${playlist.added} pistas (límite ${MAX_PLAYLIST_TRACKS}).`
+            });
         }
         return embed;
     }

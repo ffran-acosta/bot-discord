@@ -3,9 +3,7 @@ import { COLORS } from '../src/ui/colors.js';
 import { requirePlayerInVoice } from '../src/middleware/guards.js';
 
 export default {
-    data: new SlashCommandBuilder()
-        .setName('resume')
-        .setDescription('Reanuda la reproducción'),
+    data: new SlashCommandBuilder().setName('resume').setDescription('Reanuda la reproducción'),
 
     async execute(interaction, kazagumo) {
         const guard = await requirePlayerInVoice(interaction, kazagumo);

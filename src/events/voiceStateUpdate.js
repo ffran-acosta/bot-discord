@@ -48,7 +48,10 @@ export default function registerVoiceStateUpdateEvent(client, kazagumo) {
             try {
                 await currentPlayer.destroy().catch(err => {
                     if (!err.message?.includes('already destroyed') && err.code !== 1) {
-                        logger.error('Error destruyendo player tras desconexión manual', { guildId, error: err.message });
+                        logger.error('Error destruyendo player tras desconexión manual', {
+                            guildId,
+                            error: err.message
+                        });
                     }
                 });
             } catch (err) {

@@ -5,9 +5,7 @@ import logger from '../src/utils/logger.js';
 import { isAutoplay, skipTrack } from '../src/services/playerState.js';
 
 export default {
-    data: new SlashCommandBuilder()
-        .setName('skip')
-        .setDescription('Salta a la siguiente canción'),
+    data: new SlashCommandBuilder().setName('skip').setDescription('Salta a la siguiente canción'),
 
     async execute(interaction, kazagumo) {
         const guard = await requirePlayerInVoice(interaction, kazagumo);

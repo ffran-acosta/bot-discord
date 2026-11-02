@@ -5,9 +5,7 @@ import { PlayerSetupError, resolveOrCreatePlayer } from '../src/utils/playerUtil
 import logger from '../src/utils/logger.js';
 
 export default {
-    data: new SlashCommandBuilder()
-        .setName('join')
-        .setDescription('Se une al canal de voz en el que estás'),
+    data: new SlashCommandBuilder().setName('join').setDescription('Se une al canal de voz en el que estás'),
 
     async execute(interaction, kazagumo) {
         const voiceChannel = await requireVoiceChannel(interaction);
@@ -25,9 +23,10 @@ export default {
             await interaction.reply({ embeds: [embed] });
         } catch (error) {
             logger.error('Error al unirse al canal de voz', { guildId: interaction.guild.id, error: error.message });
-            const message = error instanceof PlayerSetupError
-                ? error.userMessage
-                : '❌ No pude unirme al canal de voz. Probá de nuevo.';
+            const message =
+                error instanceof PlayerSetupError
+                    ? error.userMessage
+                    : '❌ No pude unirme al canal de voz. Probá de nuevo.';
             await interaction.reply(message);
         }
     }

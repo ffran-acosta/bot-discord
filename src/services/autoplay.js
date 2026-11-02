@@ -2,20 +2,25 @@ import { EmbedBuilder } from 'discord.js';
 import { formatTrackDuration } from '../utils/formatTime.js';
 import { COLORS } from '../ui/colors.js';
 import logger from '../utils/logger.js';
-import {
-    getAutoplayContext,
-    getAutoplayHistory,
-    pushAutoplayHistory,
-    setAutoplayContext
-} from './playerState.js';
+import { getAutoplayContext, getAutoplayHistory, pushAutoplayHistory, setAutoplayContext } from './playerState.js';
 import { cancelDisconnect } from './timers.js';
 import { AUTOPLAY_DELAY_MS } from '../config/constants.js';
 
 const NON_MUSIC_KEYWORDS = [
-    'how to', 'tutorial', 'guide', 'tips', 'tricks',
-    'radio concierto', 'emisión en directo', 'live radio',
-    'internet radio', 'licensing', 'keyfob', 'volvo',
-    'things you didn\'t know', 'cassette - radio'
+    'how to',
+    'tutorial',
+    'guide',
+    'tips',
+    'tricks',
+    'radio concierto',
+    'emisión en directo',
+    'live radio',
+    'internet radio',
+    'licensing',
+    'keyfob',
+    'volvo',
+    "things you didn't know",
+    'cassette - radio'
 ];
 
 /**
@@ -35,7 +40,10 @@ export function isRelatedCandidate(track, contextTrack, currentTrack, history) {
     const trackWords = trackTitleLower.split(/\s+/).filter(w => w.length > 3);
     return !history.some(historyTrack => {
         if (historyTrack.uri === track.uri) return true;
-        const historyWords = historyTrack.title.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+        const historyWords = historyTrack.title
+            .toLowerCase()
+            .split(/\s+/)
+            .filter(w => w.length > 3);
         return trackWords.filter(w => historyWords.includes(w)).length >= 2;
     });
 }
@@ -107,22 +115,29 @@ export async function searchAndPlayRelatedSong(player, kazagumo, client, guild) 
                 if (player.textId) {
                     const channel =
                         guild.channels.cache.get(player.textId) ||
-                        await guild.channels.fetch(player.textId).catch(() => null);
+                        (await guild.channels.fetch(player.textId).catch(() => null));
                     if (channel?.isTextBased?.()) {
                         const embed = new EmbedBuilder()
                             .setColor(COLORS.primary)
                             .setTitle('🎲 Radio estilo')
-                            .setDescription(`**Reproduciendo tema similar:**\n[${relatedTrack.title}](${relatedTrack.uri})`)
-                            .addFields(
-                                { name: '⏱️ Duración', value: formatTrackDuration(relatedTrack.length), inline: true }
+                            .setDescription(
+                                `**Reproduciendo tema similar:**\n[${relatedTrack.title}](${relatedTrack.uri})`
                             )
+                            .addFields({
+                                name: '⏱️ Duración',
+                                value: formatTrackDuration(relatedTrack.length),
+                                inline: true
+                            })
                             .setThumbnail(relatedTrack.thumbnail || null)
                             .setTimestamp();
 
                         try {
                             await channel.send({ embeds: [embed] });
                         } catch (error) {
-                            logger.error('Error enviando notificación de auto-reproducir', { guildId, error: error.message });
+                            logger.error('Error enviando notificación de auto-reproducir', {
+                                guildId,
+                                error: error.message
+                            });
                         }
                     }
                 }

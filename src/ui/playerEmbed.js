@@ -74,9 +74,7 @@ export function buildPlayerButtons(player) {
     const canPrevious =
         hasTrack &&
         (prevLen > 0 ||
-            (current?.isSeekable &&
-                current?.length > 0 &&
-                (pos >= PREVIOUS_RESTART_THRESHOLD_MS || player.paused)));
+            (current?.isSeekable && current?.length > 0 && (pos >= PREVIOUS_RESTART_THRESHOLD_MS || player.paused)));
     const transportRow = /** @type {ActionRowBuilder<ButtonBuilder>} */ (new ActionRowBuilder()).addComponents(
         new ButtonBuilder()
             .setCustomId(`player:previous:${guildId}`)
@@ -93,10 +91,7 @@ export function buildPlayerButtons(player) {
             .setLabel('⏭ Siguiente')
             .setStyle(ButtonStyle.Secondary)
             .setDisabled(!hasTrack),
-        new ButtonBuilder()
-            .setCustomId(`player:stop:${guildId}`)
-            .setLabel('Detener')
-            .setStyle(ButtonStyle.Danger)
+        new ButtonBuilder().setCustomId(`player:stop:${guildId}`).setLabel('Detener').setStyle(ButtonStyle.Danger)
     );
     const radioOn = isAutoplay(guildId);
     const extrasRow = /** @type {ActionRowBuilder<ButtonBuilder>} */ (new ActionRowBuilder()).addComponents(

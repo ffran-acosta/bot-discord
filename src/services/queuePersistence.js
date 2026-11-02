@@ -158,7 +158,7 @@ export async function restoreQueues(kazagumo, client) {
 
     const guildEntries = Object.entries(data.guilds);
     const wantsAutoRejoin = guildEntries.some(([guildId, entry]) => {
-        if (!entry || (!entry.current && !(entry.queue?.length) && !(entry.previous?.length))) return false;
+        if (!entry || (!entry.current && !entry.queue?.length && !entry.previous?.length)) return false;
         if (!entry._wasPlaying || !entry.voiceId) return false;
         return Boolean(client.guilds.cache.get(guildId));
     });
@@ -167,14 +167,16 @@ export async function restoreQueues(kazagumo, client) {
     if (wantsAutoRejoin) {
         rejoinNodes = await waitForConnectedLavalinkNodes(kazagumo);
         if (rejoinNodes.length === 0) {
-            logger.warn('Restore: Lavalink sin nodos listos tras esperar; rejoin automático deshabilitado para esta sesión');
+            logger.warn(
+                'Restore: Lavalink sin nodos listos tras esperar; rejoin automático deshabilitado para esta sesión'
+            );
         }
     }
 
     for (const [guildId, entry] of guildEntries) {
         const guild = client.guilds.cache.get(guildId);
         if (!guild) continue;
-        if (!entry || (!entry.current && !(entry.queue?.length) && !(entry.previous?.length))) continue;
+        if (!entry || (!entry.current && !entry.queue?.length && !entry.previous?.length)) continue;
 
         pendingByGuild.set(guildId, {
             voiceId: entry.voiceId ?? null,
@@ -197,7 +199,10 @@ export async function restoreQueues(kazagumo, client) {
                 const hasHumans = Boolean(voice?.isVoiceBased?.() && voice.members?.some(m => !m.user.bot));
 
                 if (!voice?.isVoiceBased?.()) {
-                    logger.warn('No se pudo hacer rejoin automático: canal de voz no disponible', { guildId, voiceId: entry.voiceId });
+                    logger.warn('No se pudo hacer rejoin automático: canal de voz no disponible', {
+                        guildId,
+                        voiceId: entry.voiceId
+                    });
                 } else {
                     const player = await createPlayerOnNodes(
                         kazagumo,
@@ -217,8 +222,7 @@ export async function restoreQueues(kazagumo, client) {
                         );
 
                         const q = hydrated.player?.queue;
-                        const canPlay =
-                            hydrated.ok && q && (q.current || q.length > 0);
+                        const canPlay = hydrated.ok && q && (q.current || q.length > 0);
 
                         if (canPlay) {
                             await hydrated.player.play();

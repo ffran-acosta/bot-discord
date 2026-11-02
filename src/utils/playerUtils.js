@@ -134,7 +134,9 @@ export async function resolveOrCreatePlayer(kazagumo, interaction, voiceChannel)
         }
 
         if (!player) {
-            throw new PlayerSetupError('❌ No se pudo conectar al canal de voz. Todos los nodos fallaron. Intentá de nuevo.');
+            throw new PlayerSetupError(
+                '❌ No se pudo conectar al canal de voz. Todos los nodos fallaron. Intentá de nuevo.'
+            );
         }
     }
 

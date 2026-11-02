@@ -1,8 +1,4 @@
-import {
-    LAVALINK_RESTORE_POLL_MS,
-    LAVALINK_RESTORE_WAIT_MS,
-    LAVALINK_PLAY_WAIT_MS
-} from '../config/constants.js';
+import { LAVALINK_RESTORE_POLL_MS, LAVALINK_RESTORE_WAIT_MS, LAVALINK_PLAY_WAIT_MS } from '../config/constants.js';
 
 /**
  * @param {import('kazagumo').Kazagumo} kazagumo

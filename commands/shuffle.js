@@ -4,9 +4,7 @@ import { requirePlayerInVoice } from '../src/middleware/guards.js';
 import logger from '../src/utils/logger.js';
 
 export default {
-    data: new SlashCommandBuilder()
-        .setName('shuffle')
-        .setDescription('Mezcla el orden de los temas en la cola'),
+    data: new SlashCommandBuilder().setName('shuffle').setDescription('Mezcla el orden de los temas en la cola'),
 
     async execute(interaction, kazagumo) {
         const guard = await requirePlayerInVoice(interaction, kazagumo);
@@ -31,12 +29,14 @@ export default {
             .setColor(COLORS.primary)
             .setTitle('🔀 Cola mezclada')
             .setDescription(`Se mezclaron **${player.queue.length}** tema(s) en la cola.`)
-            .addFields(
-                { name: '🎵 Ahora', value: player.queue.current?.title ?? '—', inline: false }
-            )
+            .addFields({ name: '🎵 Ahora', value: player.queue.current?.title ?? '—', inline: false })
             .setTimestamp();
 
-        logger.info('Shuffle', { guildId: interaction.guild.id, user: interaction.user.tag, queueSize: player.queue.length });
+        logger.info('Shuffle', {
+            guildId: interaction.guild.id,
+            user: interaction.user.tag,
+            queueSize: player.queue.length
+        });
 
         await interaction.reply({ embeds: [embed] });
     }

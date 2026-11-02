@@ -57,9 +57,9 @@ export const primaryNode = {
 };
 
 export const fallbackNodes = [
-    { name: 'triniumhost-v4',    url: 'lavalink-v4.triniumhost.com:443',      auth: 'free',                         secure: true },
-    { name: 'serenetia-v4',      url: 'lavalinkv4.serenetia.com:443',         auth: 'https://seretia.link/discord', secure: true },
-    { name: 'lavalinkv4-2',      url: 'lavalinkv4-2.serenetia.com:443',       auth: 'https://seretia.link/discord', secure: true },
+    { name: 'triniumhost-v4', url: 'lavalink-v4.triniumhost.com:443', auth: 'free', secure: true },
+    { name: 'serenetia-v4', url: 'lavalinkv4.serenetia.com:443', auth: 'https://seretia.link/discord', secure: true },
+    { name: 'lavalinkv4-2', url: 'lavalinkv4-2.serenetia.com:443', auth: 'https://seretia.link/discord', secure: true }
 ];
 
 /** @param {string} url */

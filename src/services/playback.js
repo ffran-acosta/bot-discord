@@ -1,13 +1,7 @@
 import { applyPendingRestoreIfAny } from './queuePersistence.js';
 import { syncNowPlayingPanel } from './nowPlayingMessage.js';
-import {
-    MAX_PLAYLIST_TRACKS,
-    RETRY_DELAY_MS
-} from '../config/constants.js';
-import {
-    hasYoutubeListParameter,
-    isLikelySpotifyUrl
-} from '../utils/playSearchShared.js';
+import { MAX_PLAYLIST_TRACKS, RETRY_DELAY_MS } from '../config/constants.js';
+import { hasYoutubeListParameter, isLikelySpotifyUrl } from '../utils/playSearchShared.js';
 import { buildEnqueueEmbed } from '../ui/enqueueEmbed.js';
 import {
     resolveOrCreatePlayer,
@@ -78,13 +72,18 @@ export async function searchAndEnqueue(interaction, kazagumo, query, { position 
             if (!isPlaylist && result.type === 'SEARCH' && result.tracks.length > 1 && hasYoutubeListParameter(query)) {
                 isPlaylist = true;
                 tracksToAdd = result.tracks.slice(0, MAX_PLAYLIST_TRACKS);
-                logger.info(`URL de lista YouTube devolvió SEARCH; tratando como playlist (${tracksToAdd.length} pistas)`, { guildId });
+                logger.info(
+                    `URL de lista YouTube devolvió SEARCH; tratando como playlist (${tracksToAdd.length} pistas)`,
+                    { guildId }
+                );
             }
 
             if (isPlaylist) tracksToAdd = tracksToAdd.slice(0, MAX_PLAYLIST_TRACKS);
 
             if (isPlaylist && tracksToAdd.length === 0) {
-                return interaction.editReply('❌ La playlist no tiene pistas cargables (lista vacía o error del nodo).');
+                return interaction.editReply(
+                    '❌ La playlist no tiene pistas cargables (lista vacía o error del nodo).'
+                );
             }
 
             const track = tracksToAdd[0];
@@ -115,7 +114,8 @@ export async function searchAndEnqueue(interaction, kazagumo, query, { position 
                 position,
                 playlist: isPlaylist
                     ? {
-                          title: result.playlistName ?? (hasYoutubeListParameter(query) ? 'YouTube playlist' : 'Playlist'),
+                          title:
+                              result.playlistName ?? (hasYoutubeListParameter(query) ? 'YouTube playlist' : 'Playlist'),
                           added: tracksToAdd.length,
                           total: result.tracks.length
                       }
@@ -147,7 +147,11 @@ export async function searchAndEnqueue(interaction, kazagumo, query, { position 
                 await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
                 return attempt();
             }
-            logger.error(`Error en ${position === 'front' ? 'playnext' : 'play'}`, { guildId, error: err.message, stack: err.stack });
+            logger.error(`Error en ${position === 'front' ? 'playnext' : 'play'}`, {
+                guildId,
+                error: err.message,
+                stack: err.stack
+            });
             await interaction.editReply(buildPlayErrorMessage(err, query));
         }
     };

@@ -8,7 +8,8 @@ export default {
         .setName('volume')
         .setDescription('Ajusta el volumen (0-100)')
         .addIntegerOption(option =>
-            option.setName('level')
+            option
+                .setName('level')
                 .setDescription('Nivel de volumen entre 0 y 100')
                 .setRequired(true)
                 .setMinValue(0)

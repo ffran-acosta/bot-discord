@@ -34,7 +34,10 @@ export async function forcePoolReseed(reason = 'play-failed') {
  * @param {string} preferred
  */
 function uniqueNodeName(shoukaku, preferred) {
-    const base = String(preferred || 'node').replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 40) || 'node';
+    const base =
+        String(preferred || 'node')
+            .replace(/[^a-zA-Z0-9_-]/g, '_')
+            .substring(0, 40) || 'node';
     let name = base;
     let i = 0;
     while (shoukaku.nodes.has(name)) {
@@ -167,7 +170,7 @@ export function startLavalinkPoolMaintenance(kazagumo, seededNodes) {
         await recoverPool('emergency');
     }
 
-    shoukaku.on('ready', (name) => {
+    shoukaku.on('ready', name => {
         closeHistory.delete(name);
     });
 
@@ -182,7 +185,10 @@ export function startLavalinkPoolMaintenance(kazagumo, seededNodes) {
             if (list.length >= FLAP_CLOSES_THRESHOLD) {
                 closeHistory.delete(name);
                 const urlKeyResolved = nameToUrl.get(name);
-                logger.warn(`Lavalink ${name}: flapping (${list.length} cierres en ${FLAP_WINDOW_MS / 1000}s), removiendo nodo`, { code, reason: reason || '' });
+                logger.warn(
+                    `Lavalink ${name}: flapping (${list.length} cierres en ${FLAP_WINDOW_MS / 1000}s), removiendo nodo`,
+                    { code, reason: reason || '' }
+                );
                 try {
                     shoukaku.removeNode(name, 'flapping');
                     if (urlKeyResolved) urlsWithNode.delete(urlKeyResolved);

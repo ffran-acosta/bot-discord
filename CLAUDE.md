@@ -4,7 +4,7 @@ Bot de música para Discord (JS ESM, discord.js 14, kazagumo + shoukaku, Lavalin
 
 ## Comandos (pnpm)
 - `pnpm dev` (node --watch), `pnpm start`
-- `pnpm deploy`: registrar slash commands tras crear o cambiar uno. Con GUILD_ID es instantáneo; global tarda hasta 1 h.
+- `pnpm run deploy` (no `pnpm deploy`, que es un comando propio de pnpm): registrar slash commands tras crear o cambiar uno. Con GUILD_ID es instantáneo; global tarda hasta 1 h.
 - Verificación: `pnpm lint`, `pnpm typecheck` (tsc con checkJs sobre JSDoc), `pnpm test` (node:test en `test/`), `pnpm format` / `pnpm format:check` (Prettier).
 - Deploy: `./deploy.sh` (SSH a la VM Oracle → git pull → pm2 restart bot-discord); `./deploy-commands.sh`
 

@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { COLORS } from '../src/ui/colors.js';
 import { requirePlayerInVoice } from '../src/middleware/guards.js';
 
 export default {
@@ -7,7 +8,7 @@ export default {
         .setDescription('Vacía la cola (la pista actual sigue sonando)'),
 
     async execute(interaction, kazagumo) {
-        const guard = requirePlayerInVoice(interaction, kazagumo);
+        const guard = await requirePlayerInVoice(interaction, kazagumo);
         if (!guard) return;
         const { player } = guard;
 
@@ -15,7 +16,7 @@ export default {
         player.queue.clear();
 
         const embed = new EmbedBuilder()
-            .setColor(0xED4245)
+            .setColor(COLORS.danger)
             .setTitle('🗑️ Cola vaciada')
             .setDescription(
                 removed > 0

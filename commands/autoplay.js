@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { COLORS } from '../src/ui/colors.js';
 import { requirePlayerInVoice } from '../src/middleware/guards.js';
 import logger from '../src/utils/logger.js';
 import { setAutoplay, setAutoplayContext } from '../src/services/playerState.js';
@@ -17,7 +18,7 @@ export default {
                 )),
 
     async execute(interaction, kazagumo) {
-        const guard = requirePlayerInVoice(interaction, kazagumo);
+        const guard = await requirePlayerInVoice(interaction, kazagumo);
         if (!guard) return;
         const { player } = guard;
 
@@ -32,7 +33,7 @@ export default {
         }
 
         const embed = new EmbedBuilder()
-            .setColor(isEnabled ? 0x57F287 : 0xED4245)
+            .setColor(isEnabled ? COLORS.success : COLORS.danger)
             .setTitle(
                 isEnabled ? '🔄 Reproducción automática activada' : '⏹️ Reproducción automática desactivada'
             )

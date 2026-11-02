@@ -1,4 +1,5 @@
-import { SlashCommandBuilder } from 'discord.js';
+import { MessageFlags, SlashCommandBuilder } from 'discord.js';
+import { requirePlayerInVoice } from '../src/middleware/guards.js';
 import { syncNowPlayingPanel } from '../src/services/nowPlayingMessage.js';
 
 export default {
@@ -7,25 +8,16 @@ export default {
         .setDescription('Muestra el panel de reproducción con controles en este canal'),
 
     async execute(interaction, kazagumo) {
-        await interaction.deferReply({ flags: 64 });
+        const guard = await requirePlayerInVoice(interaction, kazagumo);
+        if (!guard) return;
+        const { player } = guard;
 
-        const player = kazagumo.players.get(interaction.guild.id);
-        if (!player) {
-            return interaction.editReply('❌ No hay música en este servidor.');
-        }
-
-        const member = interaction.member;
-        const voiceChannel = member.voice.channel;
-        if (!voiceChannel || player.voiceId !== voiceChannel.id) {
-            return interaction.editReply('❌ Tenés que estar en el mismo canal de voz que el bot.');
-        }
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         player.setTextChannel(interaction.channel.id);
         const panelMsg = await syncNowPlayingPanel(interaction.client, kazagumo, player);
         if (!panelMsg) {
-            return interaction.editReply(
-                '❌ No se pudo publicar el panel en este canal (¿permisos o canal inválido?).'
-            );
+            return interaction.editReply('❌ No se pudo publicar el panel en este canal (¿permisos o canal inválido?).');
         }
 
         return interaction.editReply('Panel de reproducción');

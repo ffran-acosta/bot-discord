@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { COLORS } from '../src/ui/colors.js';
 import { requireVoiceChannel } from '../src/middleware/guards.js';
 import { PlayerSetupError, resolveOrCreatePlayer } from '../src/utils/playerUtils.js';
 import logger from '../src/utils/logger.js';
@@ -9,14 +10,14 @@ export default {
         .setDescription('Se une al canal de voz en el que estás'),
 
     async execute(interaction, kazagumo) {
-        const voiceChannel = requireVoiceChannel(interaction);
+        const voiceChannel = await requireVoiceChannel(interaction);
         if (!voiceChannel) return;
 
         try {
             await resolveOrCreatePlayer(kazagumo, interaction, voiceChannel);
 
             const embed = new EmbedBuilder()
-                .setColor(0x57F287)
+                .setColor(COLORS.success)
                 .setTitle('🔊 Conectado')
                 .setDescription(`Me uní a **${voiceChannel.name}**.`)
                 .setTimestamp();

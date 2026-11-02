@@ -9,7 +9,12 @@
     "start": "node index.js",
     "dev": "node --watch index.js",
     "deploy": "node deploy-commands.js",
-    "setup": "node setup.js"
+    "setup": "node setup.js",
+    "lint": "eslint .",
+    "typecheck": "tsc -p jsconfig.json",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "node --test"
   },
   "keywords": [
     "discord",
@@ -28,5 +33,12 @@
     "kazagumo": "^3.4.3",
     "shoukaku": "^4.3.0",
     "winston": "^3.19.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.14.0",
+    "globals": "^17.14.0",
+    "prettier": "^3.9.10",
+    "typescript": "^7.0.2"
   }
 }

@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { execSync } from 'child_process';
 import { config } from 'dotenv';
 
@@ -80,11 +80,6 @@ const requiredVars = {
     'LAVALINK_PASSWORD': 'Lavalink password'
 };
 
-const optionalVars = {
-    'DISCORD_CLIENT_ID': 'Bot Application ID (optional, obtained automatically)',
-    'GUILD_ID': 'Server ID for instant commands (optional)',
-    'LAVALINK_SECURE': 'true/false for secure connection (automatically detected if port is 443)'
-};
 
 let missingVars = [];
 

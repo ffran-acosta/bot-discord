@@ -1,26 +1,13 @@
 import { REST, Routes } from 'discord.js';
 import { config } from 'dotenv';
-import { readdirSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
+import { loadCommands } from './src/utils/loadCommands.js';
 
 config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
 const commands = [];
-const commandsPath = join(__dirname, 'commands');
-const commandFiles = readdirSync(commandsPath).filter(file => file.endsWith('.js'));
-
-// Load all commands
-for (const file of commandFiles) {
-    const filePath = join(commandsPath, file);
-    const command = await import(`file://${filePath}`);
-    if ('default' in command && command.default.data) {
-        commands.push(command.default.data.toJSON());
-        console.log(`✅ Command loaded: ${command.default.data.name}`);
-    }
+for (const command of await loadCommands()) {
+    commands.push(command.data.toJSON());
+    console.log(`✅ Command loaded: ${command.data.name}`);
 }
 
 // Create REST instance
